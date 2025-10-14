@@ -28,7 +28,7 @@ dependencies = [
     "pooch",
     "psutil",
     "requests",
-    "solo-epd-loader",
+    "solo-epd-loader<1.0.0",
     "sunpy>=4.1.0",
 ]
 dynamic = ["version"]
