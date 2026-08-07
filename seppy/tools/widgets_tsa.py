@@ -12,7 +12,7 @@ list_of_sc = ["PSP", "SOHO", "Solar Orbiter", "STEREO-A", "STEREO-B", "Wind"]
 stereo_instr = ["HET", "SEPT"]  # ["LET", "SEPT", "HET"]
 solo_instr = ["EPT", "HET", "STEP"]
 bepi_instr = ["SIXS-P"]
-soho_instr = ["EPHIN", "ERNE-HED"]
+soho_instr = ["ERNE-HED"]  # ["EPHIN", "ERNE-HED"]  # deactivate unreliable EPHIN electron data for now
 psp_instr = ["isois-epihi", "isois-epilo"]
 wind_instr = ["3DP"]
 

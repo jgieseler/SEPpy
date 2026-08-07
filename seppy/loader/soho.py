@@ -370,7 +370,7 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
             # # warnings.warn("Proton and helium data is still uncorrected! Know what you're doing and use at own risk!")
             custom_warning("SOHO/EPHIN proton and helium data is still uncorrected! Know what you're doing and use at own risk!")
         else:
-            custom_notification("SOHO/EPHIN proton and helium data are not supported at the moment and set to negative values of -9e9!")
+            custom_notification("SOHO/EPHIN RL2 proton and helium data are not supported at the moment and set to negative values of -9e9!")
             df.P4 = -9e9
             df.P8 = -9e9
             df.P25 = -9e9
@@ -450,6 +450,11 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
                 'H41': '40.9 - 53.0 MeV/n',
                 'INT': '>25 MeV integral'}
     meta = {'energy_labels': energies}
+
+    BOLD = "\033[1m"
+    RED = "\033[31m"
+    RESET = "\033[0m"
+    custom_warning(f'SOHO/EPHIN RL2 electron data can be highly unreliable at times and {BOLD}{RED}SHOULD NOT BE USED!{RESET}')
 
     return df, meta
 
