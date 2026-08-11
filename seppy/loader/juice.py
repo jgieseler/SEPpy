@@ -7,7 +7,7 @@ import requests
 import sunpy
 from bs4 import BeautifulSoup
 from packaging.version import Version
-from seppy.util import custom_warning, resample_df
+from seppy.util import custom_notification, custom_warning, resample_df
 from sunpy.timeseries import TimeSeries
 
 logger = pooch.get_logger()
