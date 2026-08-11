@@ -15,14 +15,17 @@ from seppy.loader.wind import wind3dp_load, wind3dp_single_download
 from unittest.mock import patch
 
 
+# manual switch to test offline loading locally
+OFFLINE = True
+
 def test_bepi_sixs_load_online():
     startdate = dt.datetime(2020, 10, 9, 12, 0)
-    df, meta = bepi_sixsp_l3_loader(startdate=startdate, resample="10min", path=None, pos_timestamp='center')
+    df, meta = bepi_sixsp_l3_loader(startdate=startdate, resample="10min", path=None, pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (0, 309)
     #
     startdate = dt.datetime(2020, 10, 19, 12, 0)
-    df, meta = bepi_sixsp_l3_loader(startdate=startdate, resample="10min", path=None, pos_timestamp='center')
+    df, meta = bepi_sixsp_l3_loader(startdate=startdate, resample="10min", path=None, pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (78, 309)
     assert df['Side2_P2'].mean() == pytest.approx(np.float64(0.3066333333333333))
@@ -31,7 +34,7 @@ def test_bepi_sixs_load_online():
 
 
 def test_juice_radem_no_files_downloaded():
-    df, energies, metadata = juice_radem_load(startdate=dt.datetime(2020, 1, 1), enddate=dt.datetime(2020, 1, 1), path="/tmp")
+    df, energies, metadata = juice_radem_load(startdate=dt.datetime(2020, 1, 1), enddate=dt.datetime(2020, 1, 1), path="/tmp", offline=OFFLINE)
 
     # Assert: empty dataframe and empty dicts
     assert isinstance(df, pd.DataFrame)
@@ -41,7 +44,7 @@ def test_juice_radem_no_files_downloaded():
 
 
 def test_juice_radem_load_without_resample():
-    df, energies, metadata = juice_radem_load(startdate=dt.datetime(2025, 1, 1), enddate=dt.datetime(2025, 1, 1), resample=None, path=None)
+    df, energies, metadata = juice_radem_load(startdate=dt.datetime(2025, 1, 1), enddate=dt.datetime(2025, 1, 1), resample=None, path=None, offline=OFFLINE)
     assert "TIME_OBT" not in df.columns
     assert pd.api.types.is_datetime64_any_dtype(df["TIME_UTC"])
     assert "PROTONS_4" in df.columns
@@ -52,7 +55,7 @@ def test_juice_radem_load_without_resample():
 
 
 def test_juice_radem_load_with_resample():
-    df, energies, metadata = juice_radem_load(startdate=dt.datetime(2025, 1, 1), enddate=dt.datetime(2025, 1, 1), resample='1h', path=None, pos_timestamp="start")
+    df, energies, metadata = juice_radem_load(startdate=dt.datetime(2025, 1, 1), enddate=dt.datetime(2025, 1, 1), resample='1h', path=None, pos_timestamp="start", offline=OFFLINE)
     assert "TIME_OBT" not in df.columns
     assert pd.api.types.is_datetime64_any_dtype(df["TIME_UTC"])
     assert "PROTONS_4" in df.columns
@@ -75,7 +78,7 @@ def test_juice_radem_load_with_resample():
 
 def test_psp_load_online():
     df, meta = psp_isois_load(dataset='PSP_ISOIS-EPIHI_L2-HET-RATES60', startdate="2021/05/31",
-                              enddate="2021/06/01", path=None, resample=None)
+                              enddate="2021/06/01", path=None, resample=None, offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (48, 3244)
     assert meta['H_ENERGY_LABL'].flatten()[0] == '  6.7 -   8.0 MeV'
@@ -83,7 +86,7 @@ def test_psp_load_online():
     assert np.sum(np.isnan(df['B_H_Uncertainty_14'])) == 48
     #
     df2, meta2 = psp_isois_load(dataset='PSP_ISOIS-EPILO_L2-PE', startdate="2021/05/31",
-                                enddate="2021/06/01", epilo_channel='F', path=None, resample="1min")
+                                enddate="2021/06/01", epilo_channel='F', path=None, resample="1min", offline=OFFLINE)
     assert isinstance(df2, pd.DataFrame)
     assert df2.shape == (57, 410)
     assert meta2['Electron_ChanF_Energy']['Electron_ChanF_Energy_E0_P0'] == np.float32(130.09998)
@@ -91,7 +94,7 @@ def test_psp_load_online():
     assert np.sum(np.isnan(df2['Electron_CountRate_ChanF_E47_P7'])) == 57
     #
     df3, meta3 = psp_isois_load(dataset='PSP_ISOIS-EPILO_L2-IC', startdate="2021/05/31",
-                                enddate="2021/06/01", epilo_channel='P', path=None, resample="1min")
+                                enddate="2021/06/01", epilo_channel='P', path=None, resample="1min", offline=OFFLINE)
     assert isinstance(df3, pd.DataFrame)
     assert df3.shape == (57, 11690)
     assert meta3['H_ChanP_Energy']['H_ChanP_Energy_E0_P0'] == np.float32(49.82931)
@@ -99,7 +102,7 @@ def test_psp_load_online():
     assert np.sum(np.isnan(df3['H_Flux_ChanP_E46_P79'])) == 57
     #
     df4, meta4 = psp_isois_load(dataset='PSP_ISOIS-EPIHI_L2-LET1-RATES60', startdate="2021/05/31",
-                                enddate="2021/06/01", path=None, resample="1min")
+                                enddate="2021/06/01", path=None, resample="1min", offline=OFFLINE)
     assert isinstance(df4, pd.DataFrame)
     assert df4.shape == (49, 5728)
     assert meta4['H_ENERGY_LABL'].flatten()[0] == '  0.6 -   0.7 MeV'
@@ -107,7 +110,7 @@ def test_psp_load_online():
     assert np.sum(np.isnan(df4['A_He_Flux_1'])) == 49
     #
     df5, meta5 = psp_isois_load(dataset='PSP_ISOIS-EPIHI_L2-LET2-RATES60', startdate="2021/05/31",
-                                enddate="2021/06/01", path=None, resample="1min")
+                                enddate="2021/06/01", path=None, resample="1min", offline=OFFLINE)
     assert isinstance(df5, pd.DataFrame)
     assert df5.shape == (49, 2770)
     assert meta5['H_ENERGY_LABL'].flatten()[0] == '  0.6 -   0.7 MeV'
@@ -131,7 +134,7 @@ def test_psp_load_online():
 
 def test_soho_ephin_l2_load_online():
     df, meta = soho_load(dataset='SOHO_COSTEP-EPHIN_L2-1MIN', startdate="2021/04/16", enddate="2021/04/16",
-                         path=None, resample="2min", pos_timestamp='center')
+                         path=None, resample="2min", pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (573, 14)
     assert meta['energy_labels']['E1300'] == '0.67 - 10.4 MeV'
@@ -144,7 +147,7 @@ def test_soho_ephin_l2_load_offline():
     # path = Path(fullpath).parent.as_posix()
     path = (Path(__file__).parent.parent / "data" / "test").as_posix()
     df, meta = soho_load(dataset='SOHO_COSTEP-EPHIN_L2-1MIN', startdate="2021/04/16", enddate="2021/04/16",
-                         path=path, resample="2min", pos_timestamp=None)
+                         path=path, resample="2min", pos_timestamp=None, offline=True)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (573, 14)
     assert meta['energy_labels']['E1300'] == '0.67 - 10.4 MeV'
@@ -165,7 +168,7 @@ def test_soho_ephin_l2_load_offline():
 
 def test_soho_erne_hed_load_online():
     df, meta = soho_load(dataset='SOHO_ERNE-HED_L2-1MIN', startdate="2021/04/16", enddate="2021/04/17",
-                         path=None, resample="1min", pos_timestamp='center')
+                         path=None, resample="1min", pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (1145, 41)
     assert meta['channels_dict_df_p']['ch_strings'].iloc[9] == '100 - 130 MeV'
@@ -174,7 +177,7 @@ def test_soho_erne_hed_load_online():
 
 def test_soho_erne_led_load_online():
     df, meta = soho_load(dataset='SOHO_ERNE-LED_L2-1MIN', startdate="2002/04/16", enddate="2002/04/17",
-                         path=None, resample="1min", pos_timestamp='center')
+                         path=None, resample="1min", pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (1438, 41)
     assert meta['channels_dict_df_p']['ch_strings'].iloc[9] == '10  - 13  MeV'
@@ -182,7 +185,7 @@ def test_soho_erne_led_load_online():
 
 
 def test_solo_mag_load_online():
-    df = mag_load("2021/07/12", "2021/07/13", level='l2', data_type='normal-1-minute', frame='rtn', path=None)
+    df = mag_load("2021/07/12", "2021/07/13", level='l2', data_type='normal-1-minute', frame='rtn', path=None, offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (1437, 7)
     assert np.sum(np.isnan(df['B_RTN_0'])) == 64
@@ -193,7 +196,7 @@ def test_solo_mag_load_offline():
     # fullpath = get_pkg_data_filename('data/test/solo_l2_mag-rtn-normal-1-minute_20210712_v01.cdf', package='seppy')
     # path = Path(fullpath).parent.as_posix()
     path = (Path(__file__).parent.parent / "data" / "test").as_posix()
-    df = mag_load("2021/07/12", "2021/07/13", level='l2', data_type='normal-1-minute', frame='rtn', path=path)
+    df = mag_load("2021/07/12", "2021/07/13", level='l2', data_type='normal-1-minute', frame='rtn', path=path, offline=True)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (1437, 7)
     assert np.sum(np.isnan(df['B_RTN_0'])) == 64
@@ -201,9 +204,9 @@ def test_solo_mag_load_offline():
 
 def test_stereo_het_load_online():
     df, meta = stereo_load(instrument="HET", startdate="2021/10/28", enddate="2021/10/29",
-                           path=None, resample="1min", pos_timestamp='center')
+                           path=None, resample="1min", pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
-    assert df.shape == (1440, 28)
+    assert df.shape == (2879, 28)
     assert meta['Proton_Bins_Text'].flatten()[0] == '13.6 - 15.1 MeV '
     assert np.sum(np.isnan(df['Electron_Flux_0'])) == 0
 
@@ -214,7 +217,7 @@ def test_stereo_het_load_offline():
     # path = Path(fullpath).parent.as_posix()
     path = (Path(__file__).parent.parent / "data" / "test").as_posix()
     df, meta = stereo_load(instrument="HET", startdate="2021/10/28", enddate="2021/10/29",
-                           path=path, resample="1min", pos_timestamp=None)
+                           path=path, resample="1min", pos_timestamp=None, offline=True)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (1440, 28)
     assert meta['Proton_Bins_Text'].flatten()[0] == '13.6 - 15.1 MeV '
@@ -223,7 +226,7 @@ def test_stereo_het_load_offline():
 
 def test_stereo_sept_load_online():
     df, meta = stereo_load(instrument="SEPT", startdate="2006/11/14", enddate="2006/11/14",
-                           path=None, resample="1min", pos_timestamp='center', sept_viewing='north')
+                           path=None, resample="1min", pos_timestamp='center', sept_viewing='north', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (371, 30)
     assert meta['channels_dict_df_e'].ch_strings[meta['channels_dict_df_e'].index==2].values[0] == '45.0-55.0 keV'
@@ -237,7 +240,7 @@ def test_stereo_sept_load_offline():
     # path = Path(fullpath).parent.as_posix()
     path = (Path(__file__).parent.parent / "data" / "test").as_posix()
     df, meta = stereo_load(instrument="SEPT", startdate="2006/11/14", enddate="2006/11/14",
-                           path=path, resample="1min", pos_timestamp=None, sept_viewing='sun')
+                           path=path, resample="1min", pos_timestamp=None, sept_viewing='sun', offline=True)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (371, 30)
     assert meta['channels_dict_df_e'].ch_strings[meta['channels_dict_df_e'].index==2].values[0] == '45.0-55.0 keV'
@@ -251,12 +254,13 @@ def test_wind3dp_load_online():
                             enddate="2021/04/17",
                             resample='1min',
                             multi_index=True,
-                            path=None)
+                            path=None,
+                            offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
-    assert df.shape == (2880, 76)
+    assert df.shape == (4320, 76)
     assert meta['FLUX_LABELS'].flatten()[0] == 'ElecNoFlux_Ch1_Often~27keV '
     # Check that fillvals are replaced by NaN
-    assert np.sum(np.isnan(df['FLUX_E0', 'FLUX_E0_P0'])) == 129
+    assert np.sum(np.isnan(df['FLUX_E0', 'FLUX_E0_P0'])) == 208
 
 
 def test_wind3dp_load_offline():
@@ -269,7 +273,8 @@ def test_wind3dp_load_offline():
                             enddate="2020/02/14",
                             resample=None,
                             multi_index=False,
-                            path=path)
+                            path=path,
+                            offline=True)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (897, 15)
     assert meta['FLUX_LABELS'].flatten()[0] == 'ElecNoFlux_Ch1_Often~27keV '
