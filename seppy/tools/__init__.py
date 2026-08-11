@@ -57,7 +57,7 @@ class Event:
 
     def __init__(self, start_date, end_date, spacecraft, sensor, species,
                  data_level, data_path, viewing=None, radio_spacecraft=None,
-                 threshold=None):
+                 threshold=None, offline=False):
         """
         Initialize the Event object, for which the analysis functions can be
         run. This will download and read-in the necessary data.
@@ -118,6 +118,7 @@ class Event:
         self.data_path = data_path + os.sep
         self.threshold = threshold
         self.radio_spacecraft = radio_spacecraft  # this is a 2-tuple, e.g., ("ahead", "STEREO-A")
+        self.offline = offline
 
         # Sets the self.viewing to the given viewing
         self.update_viewing(viewing=viewing)
@@ -275,7 +276,8 @@ class Event:
                                             startdate=self.start_date,
                                             enddate=self.end_date,
                                             path=self.data_path,
-                                            autodownload=autodownload)
+                                            # offline=self.offline,
+                                            autodownload=not self.offline)
 
                 return df_i, df_e, meta
 
@@ -286,7 +288,8 @@ class Event:
                                     startdate=self.start_date,
                                     enddate=self.end_date,
                                     path=self.data_path,
-                                    autodownload=autodownload)
+                                    # offline=self.offline,
+                                    autodownload=not self.offline)
 
                 return df, meta
 
@@ -302,7 +305,8 @@ class Event:
                                                            sept_viewing=viewing,
                                                            resample=None,
                                                            pos_timestamp="center",
-                                                           path=self.data_path)
+                                                           path=self.data_path,
+                                                           offline=self.offline)
                     df_e, channels_dict_df_e = [], []
 
                     return df_i, df_e, channels_dict_df_i, channels_dict_df_e
@@ -317,7 +321,8 @@ class Event:
                                                            sept_viewing=viewing,
                                                            resample=None,
                                                            pos_timestamp="center",
-                                                           path=self.data_path)
+                                                           path=self.data_path,
+                                                           offline=self.offline)
 
                     df_i, channels_dict_df_i = [], []
 
@@ -330,7 +335,8 @@ class Event:
                                        spacecraft=self.spacecraft,
                                        resample=None,
                                        pos_timestamp="center",
-                                       path=self.data_path)
+                                       path=self.data_path,
+                                       offline=self.offline)
 
                 return df, meta
 
@@ -341,7 +347,8 @@ class Event:
                                      enddate=self.end_date,
                                      path=self.data_path,
                                      resample=None,
-                                     pos_timestamp="center")
+                                     pos_timestamp="center",
+                                     offline=self.offline)
 
                 return df, meta
 
@@ -351,7 +358,8 @@ class Event:
                                      enddate=self.end_date,
                                      path=self.data_path,
                                      resample=None,
-                                     pos_timestamp="center")
+                                     pos_timestamp="center",
+                                     offline=self.offline)
 
                 return df, meta
 
@@ -389,7 +397,8 @@ class Event:
                                             resample=None,
                                             multi_index=False,
                                             path=self.data_path,
-                                            threshold=self.threshold)
+                                            threshold=self.threshold,
+                                            offline=self.offline)
 
                 df_e, meta_e = wind3dp_load(dataset="WI_SFPD_3DP",
                                             startdate=self.start_date,
@@ -397,7 +406,8 @@ class Event:
                                             resample=None,
                                             multi_index=False,
                                             path=self.data_path,
-                                            threshold=self.threshold)
+                                            threshold=self.threshold,
+                                            offline=self.offline)
 
                 df_omni_i, meta_omni_i = wind3dp_load(dataset="WI_SOSP_3DP",
                                                       startdate=self.start_date,
@@ -405,7 +415,8 @@ class Event:
                                                       resample=None,
                                                       multi_index=False,
                                                       path=self.data_path,
-                                                      threshold=self.threshold)
+                                                      threshold=self.threshold,
+                                                      offline=self.offline)
 
                 df_omni_e, meta_omni_e = wind3dp_load(dataset="WI_SFSP_3DP",
                                                       startdate=self.start_date,
@@ -413,7 +424,8 @@ class Event:
                                                       resample=None,
                                                       multi_index=False,
                                                       path=self.data_path,
-                                                      threshold=self.threshold)
+                                                      threshold=self.threshold,
+                                                      offline=self.offline)
 
                 return df_omni_i, df_omni_e, df_i, df_e, meta_i, meta_e
 
@@ -423,7 +435,8 @@ class Event:
                                           startdate=self.start_date,
                                           enddate=self.end_date,
                                           path=self.data_path,
-                                          resample=None)
+                                          resample=None,
+                                          offline=self.offline)
 
                 return df, meta
             if self.sensor.lower() == 'isois-epilo':
@@ -433,12 +446,14 @@ class Event:
                                           path=self.data_path,
                                           resample=None,
                                           epilo_channel='F',
-                                          epilo_threshold=self.threshold)
+                                          epilo_threshold=self.threshold,
+                                          offline=self.offline)
 
                 return df, meta
 
         if self.spacecraft.lower() == 'bepi':
             if self.data_level.lower() == 'l2':
+                # function always offline:
                 df, meta = bepi_sixs_load(startdate=self.start_date,
                                           enddate=self.end_date,
                                           side=viewing,
@@ -456,7 +471,8 @@ class Event:
                                                 enddate=self.end_date,
                                                 resample=None,
                                                 path=self.data_path,
-                                                pos_timestamp='center')
+                                                pos_timestamp='center',
+                                                offline=self.offline)
                 return df, meta
 
     def load_all_viewing(self):
