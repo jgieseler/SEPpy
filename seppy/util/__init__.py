@@ -2,6 +2,7 @@
 import datetime
 import glob
 import os
+import re
 import warnings
 
 import astropy.constants as const
@@ -11,6 +12,7 @@ import pandas as pd
 import psutil
 import sunpy.sun.constants as sconst
 from astropy.utils.data import get_pkg_data_filename
+from collections import defaultdict
 from sunpy.coordinates import get_horizons_coord
 from tqdm.auto import tqdm
 from typing import Callable
@@ -824,3 +826,74 @@ def remove_duplicate_cdf_files(path=None):
                 deleted_files.append(dup)
                 os.remove(dup)
     return deleted_files
+
+
+def get_local_files(path, dataset, startdate, enddate):
+    """
+    Scan *path* for CDF files matching *dataset* and the date range.
+
+    Works with CDAWeb-style filenames (e.g.,
+    ``psp_isois-epihi_l2-het-rates60_20211231_v15.cdf``) and other
+    conventions where the filename starts with the lowercased dataset
+    ID followed by an 8-digit YYYYMMDD date.
+    If multiple versions of the same file exist for a given date, only
+    the latest version is kept (lexicographic sort on the full filename).
+
+    Parameters
+    ----------
+    path : str
+        Directory to scan.
+    dataset : str
+        Dataset identifier used to match filenames. The lowercased
+        *dataset* string must appear at the start of the filename.
+    startdate, enddate : datetime-like
+        Inclusive date range.
+
+    Returns
+    -------
+    list of str
+        Sorted list of full file paths.
+
+    Examples
+    --------
+    >>> get_local_files('/data_dir/', 'PSP_ISOIS-EPIHI_L2-HET-RATES60',
+    ...                  '2021/12/01', '2021/12/31')
+    []
+    """
+    start = pd.Timestamp(startdate).normalize()
+    end = pd.Timestamp(enddate).normalize()
+
+    escaped = re.escape(dataset.lower())
+    pattern = re.compile(
+        escaped + r'_(?P<date>\d{8}).*\.cdf$', re.IGNORECASE
+    )
+
+    # Collect candidate files grouped by date string
+    date_files = defaultdict(list)
+
+    try:
+        dir_contents = os.listdir(path)
+    except FileNotFoundError:
+        return []
+
+    for fname in dir_contents:
+        m = pattern.match(fname)
+        if not m:
+            continue
+        full_path = os.path.join(path, fname)
+        if os.path.getsize(full_path) == 0:
+            continue
+        if m.group('date') == '00000000':  # skip cdf skeleton files
+            continue
+        file_date = pd.Timestamp(m.group('date'))
+        if start <= file_date <= end:
+            date_files[m.group('date')].append(full_path)
+
+    # For each date keep only the highest-version file
+    result = []
+    for date_str in sorted(date_files.keys()):
+        # Lexicographic max picks the highest version for
+        # zero-padded version strings (_v05, _v15, _V02, etc.)
+        result.append(sorted(date_files[date_str])[-1])
+
+    return result
