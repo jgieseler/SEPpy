@@ -6,6 +6,7 @@ import os
 import sunpy
 # from solo_epd_loader import epd_load
 # from solo_epd_loader import epd_load as solo_load
+from seppy.util import custom_notification, custom_warning, get_local_files
 from sunpy.net import Fido
 from sunpy.net import attrs as a
 from sunpy.timeseries import TimeSeries
@@ -18,7 +19,7 @@ def _date2str(date):
     return year+'/'+month+'/'+day
 
 
-def mag_load(startdate, enddate, level='l2', data_type='normal', frame='rtn', path=None):
+def mag_load(startdate, enddate, level='l2', data_type='normal', frame='rtn', path=None, offline=False):
     """
     Load SolO/MAG data
 
@@ -42,6 +43,13 @@ def mag_load(startdate, enddate, level='l2', data_type='normal', frame='rtn', pa
         Coordinate frame of MAG data. By default 'rtn'.
     path : {str}, optional
         Local path for storing downloaded data, by default None
+    offline : bool, optional
+        If False, will try to download missing data files from CDAWeb. If True,
+        will only use locally available files in *path* (or the default SunPy
+        download directory when *path* is None). Note that when offline is
+        enabled, no check is performed whether newer versions of the data
+        files are available on the server; the latest locally available version
+        is used. By default False.
 
     Returns
     -------
@@ -64,22 +72,36 @@ def mag_load(startdate, enddate, level='l2', data_type='normal', frame='rtn', pa
     if isinstance(enddate, int):
         enddate = _date2str(enddate)
 
-    trange = a.Time(startdate, enddate)
-    dataset = a.cdaweb.Dataset(data_id)
-    result = Fido.search(trange, dataset)
-    filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
-    filelist.sort()
-    if path is None:
-        filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
-    elif type(path) is str:
-        filelist = [path + os.sep + f for f in filelist]
+    if not offline:
+        trange = a.Time(startdate, enddate)
+        dataset = a.cdaweb.Dataset(data_id)
+        result = Fido.search(trange, dataset)
+        filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
+        filelist.sort()
+        if path is None:
+            filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
+        elif type(path) is str:
+            filelist = [path + os.sep + f for f in filelist]
 
-    for i, f in enumerate(filelist):
-        if os.path.exists(f) and os.path.getsize(f) == 0:
-            os.remove(f)
-        if not os.path.exists(f):
-            _downloaded_file = Fido.fetch(result[0][i], path=path)
-    # files = Fido.fetch(result, path=path)
+        for i, f in enumerate(filelist):
+            if os.path.exists(f) and os.path.getsize(f) == 0:
+                os.remove(f)
+            if not os.path.exists(f):
+                _downloaded_file = Fido.fetch(result[0][i], path=path)
+    else:
+        if path is None:
+            data_path = sunpy.config.get('downloads', 'download_dir')
+        else:
+            data_path = path
+        custom_notification(
+            f'offline mode enabled, loading local files only from '
+            f'{data_path}. No check is performed whether newer versions '
+            f'of the data files are available on the server.'
+        )
+        filelist = get_local_files(data_path, data_id, startdate, enddate)
+        if not filelist:
+            print(f'No local files found for "{data_id}" in {data_path}')
+            return []
 
     solo_mag = TimeSeries(filelist, concatenate=True)
     df_solo_mag = solo_mag.to_dataframe()

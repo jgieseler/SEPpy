@@ -18,9 +18,11 @@ To create/update the baseline images, run the following command from the base pa
 pytest --mpl-generate-path=seppy/tests/baseline seppy/tests/test_tools.py
 
 To run the tests locally, go to the base directory of the repository and run:
-pytest -ra --mpl --mpl-baseline-path=baseline --mpl-baseline-relative --mpl-generate-summary=html seppy/tests/test_tools.py
+pytest -ra --mpl --mpl-baseline-path=baseline --mpl-baseline-relative --mpl-generate-summary=html seppy/tefs/test_tools.py
 """
 
+# manual switch to test offline loading locally
+OFFLINE = False
 
 # switch to non-plotting matplotlib backend to avoid showing all the figures:
 plt.switch_backend("Agg")
@@ -35,7 +37,7 @@ def test_onset_spectrum_tsa_SOLO_STEP_ions_old_data_online():
     background_range = (datetime.datetime(2020, 9, 21, 0, 0, 0), datetime.datetime(2020, 9, 21, 2, 0, 0))
     #
     # ions
-    Event1 = Event(spacecraft='Solar Orbiter', sensor='STEP', viewing='Pixel averaged', data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='Solar Orbiter', sensor='STEP', viewing='Pixel averaged', data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     # Pixel averaged
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='Pixel averaged', background_range=background_range, channels=1, resample_period="5min", yscale='log', cusum_window=30)
@@ -75,7 +77,7 @@ def test_onset_spectrum_tsa_SOLO_STEP_ions_new_data_online():
     lpath = jupyterhub_data_path(lpath)
     background_range = (datetime.datetime(2022, 1, 9, 10, 0, 0), datetime.datetime(2022, 1, 9, 12, 0, 0))
     # ions
-    Event1 = Event(spacecraft='Solar Orbiter', sensor='STEP', viewing='Pixel averaged', data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='Solar Orbiter', sensor='STEP', viewing='Pixel averaged', data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     # Pixel averaged
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='Pixel averaged', background_range=background_range, channels=1, resample_period="5min", yscale='log', cusum_window=30)
@@ -119,7 +121,7 @@ def test_onset_spectrum_tsa_SOLO_HET_online():
     lpath = jupyterhub_data_path(lpath)
     background_range = (datetime.datetime(2022, 11, 8, 0, 0, 0), datetime.datetime(2022, 11, 8, 1, 0, 0))
     # viewing "sun", single channel, protons
-    Event1 = Event(spacecraft='Solar Orbiter', sensor='HET', viewing='sun', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='Solar Orbiter', sensor='HET', viewing='sun', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='sun', background_range=background_range, channels=1, resample_period="5min", yscale='log', cusum_window=30)
     assert isinstance(flux, pd.Series)
@@ -130,7 +132,7 @@ def test_onset_spectrum_tsa_SOLO_HET_online():
     assert peak_time.isoformat().split('.')[0] == '2022-11-08T17:58:09'
     assert fig.get_axes()[0].get_title() == 'SOLO/HET 7.3540 - 7.8900 MeV protons\n5min averaging, viewing: SUN'
     # viewing "north", combined channel, electrons
-    Event1 = Event(spacecraft='Solar Orbiter', sensor='HET', viewing='sun', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='Solar Orbiter', sensor='HET', viewing='sun', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='north', background_range=background_range, channels=[0, 3], resample_period="5min", yscale='log', cusum_window=30)
     assert isinstance(flux, pd.Series)
@@ -161,7 +163,7 @@ def test_onset_spectrum_tsa_SOLO_EPT_online():
     lpath = jupyterhub_data_path(lpath)
     background_range = (datetime.datetime(2022, 6, 6, 0, 0, 0), datetime.datetime(2022, 6, 6, 1, 0, 0))
     # viewing "sun", single channel, ions
-    Event1 = Event(spacecraft='Solar Orbiter', sensor='EPT', viewing='sun', data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='Solar Orbiter', sensor='EPT', viewing='sun', data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='sun', background_range=background_range, channels=4, resample_period="5min", yscale='log', cusum_window=30)
     assert isinstance(flux, pd.Series)
@@ -172,7 +174,7 @@ def test_onset_spectrum_tsa_SOLO_EPT_online():
     assert peak_time.isoformat().split('.')[0] == '2022-06-06T01:02:31'
     assert fig.get_axes()[0].get_title() == 'SOLO/EPT 0.0608 - 0.0678 MeV protons\n5min averaging, viewing: SUN'
     # viewing "north", combined channel, electrons
-    Event1 = Event(spacecraft='Solar Orbiter', sensor='EPT', viewing='sun', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='Solar Orbiter', sensor='EPT', viewing='sun', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='north', background_range=background_range, channels=[5, 10], resample_period="5min", yscale='log', cusum_window=30)
     assert isinstance(flux, pd.Series)
@@ -203,7 +205,7 @@ def test_onset_spectrum_tsa_PSP_ISOIS_EPIHI_online():
     lpath = jupyterhub_data_path(lpath)
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     # viewing "A", single channel, electrons
-    Event1 = Event(spacecraft='PSP', sensor='isois-epihi', viewing='A', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='PSP', sensor='isois-epihi', viewing='A', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='A', background_range=background_range, channels=4, resample_period="5min", yscale='log', cusum_window=30)
     assert isinstance(flux, pd.Series)
@@ -214,7 +216,7 @@ def test_onset_spectrum_tsa_PSP_ISOIS_EPIHI_online():
     assert peak_time.isoformat().split('.')[0] == '2021-10-28T16:06:59'
     assert fig.get_axes()[0].get_title() == 'PSP/ISOIS-EPIHI 0.8 - 1.0 MeV electrons\n5min averaging, viewing: A'
     # viewing "B", combined channel, protons
-    Event1 = Event(spacecraft='PSP', sensor='isois-epihi', viewing='B', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='PSP', sensor='isois-epihi', viewing='B', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='B', background_range=background_range, channels=[1, 5], resample_period="5min", yscale='log', cusum_window=30)
     assert isinstance(flux, pd.Series)
@@ -243,7 +245,7 @@ def test_onset_spectrum_tsa_PSP_ISOIS_EPILO_e_online():
     enddate = datetime.date(2021, 10, 29)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='PSP', sensor='isois-epilo', viewing='7', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='PSP', sensor='isois-epilo', viewing='7', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     # viewing "7", single channel
@@ -280,10 +282,10 @@ def test_onset_spectrum_tsa_PSP_ISOIS_EPILO_e_online():
 @pytest.mark.mpl_image_compare(remove_text=False, deterministic=True)
 def test_onset_spectrum_tsa_Wind_3DP_p_online():
     startdate = datetime.date(2021, 10, 28)
-    enddate = datetime.date(2021, 10, 29)
+    enddate = datetime.date(2021, 10, 28)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='Wind', sensor='3DP', data_level='l2', viewing="Sector 3", species='protons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='Wind', sensor='3DP', data_level='l2', viewing="Sector 3", species='protons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     # viewng "sector 3"
@@ -321,10 +323,10 @@ def test_onset_spectrum_tsa_Wind_3DP_p_online():
 @pytest.mark.mpl_image_compare(remove_text=False, deterministic=True)
 def test_onset_spectrum_tsa_Wind_3DP_e_online():
     startdate = datetime.date(2021, 10, 28)
-    enddate = datetime.date(2021, 10, 29)
+    enddate = datetime.date(2021, 10, 28)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='Wind', sensor='3DP', viewing="Sector 3", data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath)  # TODO: radio_spacecraft=('wind', 'WIND')
+    Event1 = Event(spacecraft='Wind', sensor='3DP', viewing="Sector 3", data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)  # TODO: radio_spacecraft=('wind', 'WIND')
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     #
@@ -365,13 +367,13 @@ def test_onset_spectrum_tsa_STEREOB_HET_p_online():
     enddate = datetime.date(2006, 12, 14)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='STEREO-B', sensor='HET', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='STEREO-B', sensor='HET', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2006, 12, 13, 0, 0, 0), datetime.datetime(2006, 12, 13, 2, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing=None, background_range=background_range, channels=[5, 8], resample_period="5min", yscale='log', cusum_window=30)
 
     assert isinstance(flux, pd.Series)
-    assert flux.shape == (288,)
+    assert flux.shape == (576,)
     assert len(onset_stats) == 6
     assert onset_stats[5].isoformat().split('.')[0] == "2006-12-13T03:03:04"
     assert onset_found
@@ -396,13 +398,13 @@ def test_onset_spectrum_tsa_STEREOB_HET_e_online():
     enddate = datetime.date(2006, 12, 14)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='STEREO-B', sensor='HET', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=('behind', 'STEREO-B'))
+    Event1 = Event(spacecraft='STEREO-B', sensor='HET', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=('behind', 'STEREO-B'), offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2006, 12, 13, 0, 0, 0), datetime.datetime(2006, 12, 13, 2, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing=None, background_range=background_range, channels=[1], resample_period="5min", yscale='log', cusum_window=30)
 
     assert isinstance(flux, pd.Series)
-    assert flux.shape == (288,)
+    assert flux.shape == (576,)
     assert len(onset_stats) == 6
     assert onset_stats[5].isoformat().split('.')[0] == "2006-12-13T02:38:04"
     assert onset_found
@@ -427,7 +429,7 @@ def test_onset_spectrum_tsa_STEREOA_SEPT_p_online():
     enddate = datetime.date(2021, 10, 28)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='STEREO-A', sensor='SEPT', viewing="north", data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='STEREO-A', sensor='SEPT', viewing="north", data_level='l2', species='ions', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='north', background_range=background_range, channels=[5, 8], resample_period="5min", yscale='log', cusum_window=30)
@@ -458,7 +460,7 @@ def test_onset_spectrum_tsa_STEREOA_SEPT_e_online():
     enddate = datetime.date(2021, 10, 28)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='STEREO-A', sensor='SEPT', viewing="asun", data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=('ahead', 'STEREO-A'))
+    Event1 = Event(spacecraft='STEREO-A', sensor='SEPT', viewing="asun", data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=('ahead', 'STEREO-A'), offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='asun', background_range=background_range, channels=[8], resample_period="5min", yscale='log', cusum_window=30)
@@ -489,7 +491,7 @@ def test_onset_spectrum_tsa_SOHO_EPHIN_online():
     enddate = datetime.date(2021, 10, 28)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='SOHO', sensor='EPHIN', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='SOHO', sensor='EPHIN', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing=None, background_range=background_range, channels=150, resample_period="5min", yscale='log', cusum_window=30)
@@ -527,7 +529,7 @@ def test_onset_spectrum_tsa_SOHO_ERNE_online():
     enddate = datetime.date(2021, 10, 29)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='SOHO', sensor='ERNE-HED', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=('ahead', 'STEREO-A'))
+    Event1 = Event(spacecraft='SOHO', sensor='ERNE-HED', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=('ahead', 'STEREO-A'), offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing=None, background_range=background_range, channels=3, resample_period="5min", yscale='log', cusum_window=30)
@@ -560,7 +562,7 @@ def test_onset_tsa_SOHO_ERNE_offline():
     # fullpath = get_pkg_data_filename('data/test/soho_erne-hed_l2-1min_20211028_v01.cdf', package='seppy')
     # lpath = Path(fullpath).parent.as_posix()
     lpath = (Path(__file__).parent.parent / "data" / "test").as_posix()
-    Event1 = Event(spacecraft='SOHO', sensor='ERNE-HED', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath)
+    Event1 = Event(spacecraft='SOHO', sensor='ERNE-HED', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, offline=OFFLINE)
     print(Event1.print_energies())
     background_range = (datetime.datetime(2021, 10, 28, 10, 0, 0), datetime.datetime(2021, 10, 28, 12, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing=None, background_range=background_range, channels=[1, 3], resample_period="5min", yscale='log', cusum_window=30)
@@ -588,7 +590,7 @@ def test_dynamic_spectrum_SOHO_ERNE_offline():
     # lpath = Path(fullpath).parent.as_posix()
     lpath = (Path(__file__).parent.parent / "data" / "test").as_posix()
     radio_spacecraft = None  # use ('ahead', 'STEREO-A') if #27 is fixed and radio files can be provided offline
-    Event1 = Event(spacecraft='SOHO', sensor='ERNE-HED', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=radio_spacecraft)
+    Event1 = Event(spacecraft='SOHO', sensor='ERNE-HED', data_level='l2', species='protons', start_date=startdate, end_date=enddate, data_path=lpath, radio_spacecraft=radio_spacecraft, offline=OFFLINE)
     Event1.dynamic_spectrum(view=None)
 
     assert Event1.fig.get_axes()[0].get_title() == 'SOHO/ERNE protons, 2021-10-28'
@@ -602,7 +604,7 @@ def test_onset_Bepi_SIXS_L2_offline():
     # lpath = Path(fullpath).parent.as_posix()
     # lpath = '/home/jagies/data/bepi/bc_mpo_sixs/data_csv/cruise/sixs-p/raw'
     lpath = (Path(__file__).parent.parent / "data" / "test").as_posix()
-    Event1 = Event(spacecraft='Bepi', sensor='SIXS-P', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, viewing='1')
+    Event1 = Event(spacecraft='Bepi', sensor='SIXS-P', data_level='l2', species='electrons', start_date=startdate, end_date=enddate, data_path=lpath, viewing='1', offline=OFFLINE)
     background_range = (datetime.datetime(2023, 7, 19, 0, 30, 0), datetime.datetime(2023, 7, 19, 1, 30, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing='1', background_range=background_range, channels=2, resample_period="1min", yscale='log', cusum_window=30)
 
@@ -625,7 +627,7 @@ def test_onset_Bepi_SIXS_L3_online(viewing, species, channels, resample):
     enddate = datetime.date(2023, 2, 19)
     lpath = f"{os.getcwd()}{os.sep}data"
     lpath = jupyterhub_data_path(lpath)
-    Event1 = Event(spacecraft='BepiColombo', sensor='SIXS-P', data_level='l3', species=species, start_date=startdate, end_date=enddate, data_path=lpath, viewing=viewing)
+    Event1 = Event(spacecraft='BepiColombo', sensor='SIXS-P', data_level='l3', species=species, start_date=startdate, end_date=enddate, data_path=lpath, viewing=viewing, offline=OFFLINE)
     background_range = (datetime.datetime(2023, 2, 17, 3, 0, 0), datetime.datetime(2023, 2, 17, 19, 0, 0))
     flux, onset_stats, onset_found, peak_flux, peak_time, fig, bg_mean = Event1.find_onset(viewing=viewing, background_range=background_range, channels=channels, resample_period=resample, yscale='log', cusum_window=30)
 

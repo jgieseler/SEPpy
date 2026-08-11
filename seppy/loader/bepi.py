@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from astropy.utils.data import get_pkg_data_filename
-from seppy.util import resample_df
+from seppy.util import resample_df, custom_warning
 
 # omit Pandas' PerformanceWarning
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
@@ -19,7 +19,9 @@ logger.setLevel("WARNING")
 
 
 def bepi_sixsp_download(date, path=None):
-    """Download BepiColombo/SIXS-P level 3 data file from SERPENTINE data server to local path
+    """
+    Download BepiColombo/SIXS-P level 3 data file from SERPENTINE data server
+    to local path
 
     Parameters
     ----------
@@ -56,8 +58,11 @@ def bepi_sixsp_download(date, path=None):
     return downloaded_file
 
 
-def bepi_sixsp_l3_loader(startdate, enddate=None, resample=None, path=None, pos_timestamp='center'):
-    """Loads BepiColombo/SIXS-P level 3 data and returns it as Pandas dataframe together with a dictionary providing the energy ranges per channel
+def bepi_sixsp_l3_loader(startdate, enddate=None, resample=None, path=None,
+                         pos_timestamp='center', offline=False):
+    """
+    Loads BepiColombo/SIXS-P level 3 data and returns it as Pandas dataframe
+    together with a dictionary providing the energy ranges per channel
 
     Parameters
     ----------
@@ -72,9 +77,16 @@ def bepi_sixsp_l3_loader(startdate, enddate=None, resample=None, path=None, pos_
         time bins. This is not necessarily the correct way to resample data,
         depending on the data type (for example for errors)!
     path : str, optional
-        local path where the files are/should be stored, by default None, in which case the sunpy download folder will be used.
+        local path where the files are/should be stored, by default None, in
+        which case the sunpy download folder will be used.
     pos_timestamp : str, optional
-        change the position of the timestamp: 'center' or 'start' of the accumulation interval, by default 'center'.
+        change the position of the timestamp: 'center' or 'start' of the
+        accumulation interval, by default 'center'.
+    offline : bool, optional
+        If False, will try to download missing data files from the SERPENTINE
+        server. If True, will only use locally available files in *path* (or the
+        default SunPy download directory when *path* is None). Missing months
+        are skipped. By default False.
 
     Returns
     -------
@@ -124,6 +136,9 @@ def bepi_sixsp_l3_loader(startdate, enddate=None, resample=None, path=None, pos_
             f = glob.glob(f"{path}{os.sep}six_der_sc_{dates[i].year}{dates[i].strftime('%m')}_l3_data.csv")[0]  # sept_{dates[i].year}_{doy}_*.dat")[0]
         except IndexError:
             # print(f"File not found locally from {path}, downloading...")
+            if offline:
+                custom_warning(f"BepiColombo/SIXS-P data not found locally for {dates[i].year}-{dates[i].strftime('%m')}. Skipping (offline mode enabled).")
+                continue
             f = bepi_sixsp_download(dates[i], path)
         if len(f) > 0:
             filelist.append(f)

@@ -17,7 +17,7 @@ from sunpy.net import Fido
 from sunpy.net import attrs as a
 from sunpy.timeseries import TimeSeries
 
-from seppy.util import resample_df  # custom_notification, custom_warning
+from seppy.util import custom_notification, custom_warning, get_local_files, resample_df
 
 # omit Pandas' PerformanceWarning
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
@@ -80,7 +80,7 @@ def stereo_sept_download(date, spacecraft, species, viewing, path=None):
     return downloaded_file
 
 
-def stereo_sept_loader(startdate, enddate, spacecraft, species, viewing, resample=None, path=None, all_columns=False, pos_timestamp='center'):
+def stereo_sept_loader(startdate, enddate, spacecraft, species, viewing, resample=None, path=None, all_columns=False, pos_timestamp='center', offline=False):
     """Loads STEREO/SEPT data and returns it as Pandas dataframe together with a dictionary providing the energy ranges per channel
 
     Parameters
@@ -97,7 +97,7 @@ def stereo_sept_loader(startdate, enddate, spacecraft, species, viewing, resampl
         'sun', 'asun', 'north', 'south' - viewing direction of instrument
     resample : str, optional
         resample frequency in format understandable by Pandas, e.g. '1min', by default None.
-        Note that this is just a simple wrapper around thepandas
+        Note that this is just a simple wrapper around the pandas
         resample function that is calculating the mean of the data in the new
         time bins. This is not necessarily the correct way to resample data,
         depending on the data type (for example for errors)!
@@ -105,6 +105,13 @@ def stereo_sept_loader(startdate, enddate, spacecraft, species, viewing, resampl
         local path where the files are/should be stored, by default None
     all_columns : boolean, optional
         if True provide all availalbe columns in returned dataframe, by default False
+    pos_timestamp : {str}, optional
+        change the position of the timestamp: 'center' or 'start' of the accumulation interval,
+        or 'original' to do nothing, by default 'center'.
+    offline : bool, optional
+        If False, will try to download missing data files from Kiel university.
+        If True, will only use locally available files in *path* (or the
+        default SunPy download directory when *path* is None). By default False.
 
     Returns
     -------
@@ -193,6 +200,13 @@ def stereo_sept_loader(startdate, enddate, spacecraft, species, viewing, resampl
 
     if not path:
         path = sunpy.config.get('downloads', 'download_dir') + os.sep
+
+    # if offline:
+    #     custom_warning(
+    #         f'offline mode enabled, loading local files only from '
+    #         f'{path}. '
+    #     )
+
     # create list of files to load:
     dates = pd.date_range(start=startdate, end=enddate, freq='D')
     filelist = []
@@ -200,8 +214,12 @@ def stereo_sept_loader(startdate, enddate, spacecraft, species, viewing, resampl
         try:
             file = glob.glob(f"{path}{os.sep}sept_{spacecraft}_{species}_{viewing}_{dates[i].year}_{doy}_*.dat")[0]
         except IndexError:
-            # print(f"File not found locally from {path}, downloading from http://www2.physik.uni-kiel.de/STEREO/data/sept/level2/")
-            file = stereo_sept_download(dates[i], spacecraft, species, viewing, path)
+            if not offline:
+                # print(f"File not found locally from {path}, downloading from http://www2.physik.uni-kiel.de/STEREO/data/sept/level2/")
+                file = stereo_sept_download(dates[i], spacecraft, species, viewing, path)
+            else:
+                custom_warning(f"File sept_{spacecraft}_{species}_{viewing}_{dates[i].year}_{doy}_*.dat not found locally at {path}. Skipping (offline mode enabled).")
+                file = ''
         if len(file) > 0:
             filelist.append(file)
     if len(filelist) > 0:
@@ -324,7 +342,7 @@ def _get_metadata(dataset, path_to_cdf):
     return metadata
 
 
-def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='RTN', sept_species='e', sept_viewing=None, path=None, resample=None, pos_timestamp='center', max_conn=5):
+def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='RTN', sept_species='e', sept_viewing=None, path=None, resample=None, pos_timestamp='center', max_conn=5, offline=False):
     """
     Downloads CDF files via SunPy/Fido from CDAWeb for HET, LET, MAG, and SEPT onboard STEREO
 
@@ -360,7 +378,7 @@ def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='R
         Local path for storing downloaded data, by default None
     resample : str, optional
         resample frequency in format understandable by Pandas, e.g. '1min', by default None.
-        Note that this is just a simple wrapper around thepandas
+        Note that this is just a simple wrapper around the pandas
         resample function that is calculating the mean of the data in the new
         time bins. This is not necessarily the correct way to resample data,
         depending on the data type (for example for errors)!
@@ -369,7 +387,13 @@ def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='R
         or 'original' to do nothing, by default 'center'.
     max_conn : int, optional
         The number of parallel download slots used by Fido.fetch, by default 5
-
+    offline : bool, optional
+        If False, will try to download missing data files from CDAWeb (or Kiel
+        university for SEPT). If True, will only use locally available files
+        in *path* (or the default SunPy download directory when *path* is
+        None). Note that when offline is enabled, no check is performed
+        whether newer versions of the data files are available on the server;
+        the latest locally available version is used. By default False.
 
     Returns
     -------
@@ -378,7 +402,8 @@ def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='R
     metadata : {dict}
         Dictionary containing different metadata, e.g., energy channels
     """
-    trange = a.Time(startdate, enddate)
+    _trange = a.Time(startdate, enddate)
+    trange = a.Time(_trange.start, _trange.end + pd.Timedelta('10min'))
     if trange.min==trange.max:
         print('"startdate" and "enddate" might need to be different!')
 
@@ -407,7 +432,8 @@ def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='R
                                                       resample=resample,
                                                       path=path,
                                                       all_columns=False,
-                                                      pos_timestamp=pos_timestamp)
+                                                      pos_timestamp=pos_timestamp,
+                                                      offline=offline)
             return df, channels_dict_df
     else:
         # define spacecraft string
@@ -423,24 +449,40 @@ def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='R
         else:
             dataset = sc + '_L1_' + instrument.upper()
 
-        cda_dataset = a.cdaweb.Dataset(dataset)
         try:
-            result = Fido.search(trange, cda_dataset)
-            filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
-            filelist.sort()
-            if path is None:
-                filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
-            elif type(path) is str:
-                filelist = [path + os.sep + f for f in filelist]
-            downloaded_files = filelist
+            # ---- file acquisition ----------------------------------------
+            if not offline:
+                cda_dataset = a.cdaweb.Dataset(dataset)
+                result = Fido.search(trange, cda_dataset)
+                filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
+                filelist.sort()
+                if path is None:
+                    filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
+                elif type(path) is str:
+                    filelist = [path + os.sep + f for f in filelist]
+                downloaded_files = filelist
 
-            for i, f in enumerate(filelist):
-                if os.path.exists(f) and os.path.getsize(f) == 0:
-                    os.remove(f)
-                if not os.path.exists(f):
-                    _downloaded_file = Fido.fetch(result[0][i], path=path, max_conn=max_conn)
+                for i, f in enumerate(filelist):
+                    if os.path.exists(f) and os.path.getsize(f) == 0:
+                        os.remove(f)
+                    if not os.path.exists(f):
+                        _downloaded_file = Fido.fetch(result[0][i], path=path, max_conn=max_conn)
+            else:
+                if path is None:
+                    data_path = sunpy.config.get('downloads', 'download_dir')
+                else:
+                    data_path = path
+                custom_notification(
+                    f'offline mode enabled, loading local files only from '
+                    f'{data_path}. No check is performed whether newer versions '
+                    f'of the data files are available on the server.'
+                )
+                downloaded_files = get_local_files(data_path, dataset, startdate, enddate)
+                if not downloaded_files:
+                    print(f'No local files found for "{dataset}" in {data_path}')
+                    return [], []
 
-            # downloaded_files = Fido.fetch(result, path=path, max_conn=max_conn)
+            # ---- processing (unchanged from here) ------------------------
             data = TimeSeries(downloaded_files, concatenate=True)
             df = data.to_dataframe()
 

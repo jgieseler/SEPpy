@@ -11,10 +11,11 @@ import requests
 import sunpy
 # import warnings
 
+from datetime import timedelta
 from sunpy.net import Fido
 from sunpy.net import attrs as a
 
-from seppy.util import resample_df  # custom_notification, custom_warning
+from seppy.util import custom_notification, custom_warning, get_local_files, resample_df
 
 
 logger = pooch.get_logger()
@@ -74,7 +75,8 @@ def wind3dp_download_fido(dataset, startdate, enddate, path=None, max_conn=5):
     -------
     List of downloaded files
     """
-    trange = a.Time(startdate, enddate)
+    _trange = a.Time(startdate, enddate)
+    trange = a.Time(_trange.start, _trange.end + pd.Timedelta('10min'))
     cda_dataset = a.cdaweb.Dataset(dataset)
     try:
         result = Fido.search(trange, cda_dataset)
@@ -164,7 +166,8 @@ def wind3dp_download(dataset, startdate, enddate, path=None, **kwargs):
     List of downloaded files
     """
 
-    trange = a.Time(startdate, enddate)
+    _trange = a.Time(startdate, enddate)
+    trange = a.Time(_trange.start, _trange.end + pd.Timedelta('10min'))
     cda_dataset = a.cdaweb.Dataset(dataset)
     try:
         result = Fido.search(trange, cda_dataset)
@@ -237,7 +240,7 @@ def _wind3dp_load(files, resample="1min", threshold=None):
 
 
 def wind3dp_load(dataset, startdate, enddate, resample="1min", multi_index=True,
-                 path=None, threshold=None, **kwargs):
+                 path=None, threshold=None, offline=False, **kwargs):
     """
     Load-in data for Wind/3DP instrument. Provides released data obtained by
     SunPy through CDF files from CDAWeb. Returns data as Pandas dataframe.
@@ -257,7 +260,7 @@ def wind3dp_load(dataset, startdate, enddate, resample="1min", multi_index=True,
     resample : str, optional
         Frequency to which the original data (~24 seconds) is resamepled. Pandas
         frequency (e.g., '1min' or '1h') or None, by default "1min".
-        Note that this is just a simple wrapper around thepandas
+        Note that this is just a simple wrapper around the pandas
         resample function that is calculating the mean of the data in the new
         time bins. This is not necessarily the correct way to resample data,
         depending on the data type (for example for errors)!
@@ -268,13 +271,39 @@ def wind3dp_load(dataset, startdate, enddate, resample="1min", multi_index=True,
         Local path for storing downloaded data, by default None
     threshold : int or float, optional
         Replace all FLUX values above 'threshold' with np.nan, by default None
+    offline : bool, optional
+        If False, will try to download missing data files from CDAWeb. If True,
+        will only use locally available files in *path* (or the default SunPy
+        download directory when *path* is None). Note that when offline is
+        enabled, no check is performed whether newer versions of the data
+        files are available on the server; the latest locally available version
+        is used. By default False.
 
     Returns
     -------
-    _type_
-        _description_
+    df : Pandas DataFrame or list
+        Dataframe containing the loaded data, or empty list if no data found.
+    meta : dict or str
+        Dictionary containing metadata and energy information, or empty string
+        if no data found.
     """
-    files = wind3dp_download(dataset, startdate, enddate, path)
+    if not offline:
+        files = wind3dp_download(dataset, startdate, enddate, path)
+    else:
+        if path is None:
+            data_path = sunpy.config.get('downloads', 'download_dir')
+        else:
+            data_path = path
+        custom_notification(
+            f'offline mode enabled, loading local files only from '
+            f'{data_path}. No check is performed whether newer versions '
+            f'of the data files are available on the server.'
+        )
+        files = get_local_files(data_path, dataset, startdate, enddate)
+        if not files:
+            print(f'No local files found for "{dataset}" in {data_path}')
+            return [], ''
+
     if len(files) > 0:
         df = _wind3dp_load(files, resample, threshold)
 

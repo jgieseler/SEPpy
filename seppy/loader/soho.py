@@ -15,7 +15,7 @@ from sunpy.net import Fido
 from sunpy.net import attrs as a
 from sunpy.timeseries import TimeSeries
 
-from seppy.util import custom_notification, custom_warning, resample_df
+from seppy.util import custom_notification, custom_warning, get_local_files, resample_df
 
 
 logger = pooch.get_logger()
@@ -74,7 +74,7 @@ def _get_metadata(dataset, path_to_cdf):
     return metadata
 
 
-def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', max_conn=5):
+def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', max_conn=5, offline=False):
     """
     Download CDF files via SunPy/Fido from CDAWeb for CELIAS, EPHIN, ERNE onboard SOHO
 
@@ -97,7 +97,7 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
         Local path for storing downloaded data, by default None
     resample : str, optional
         Resample frequency in format understandable by Pandas, e.g. '1min', by default None.
-        Note that this is just a simple wrapper around thepandas
+        Note that this is just a simple wrapper around the pandas
         resample function that is calculating the mean of the data in the new
         time bins. This is not necessarily the correct way to resample data,
         depending on the data type (for example for errors)!
@@ -106,6 +106,14 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
         or 'original' to do nothing, by default 'center'.
     max_conn : int, optional
         The number of parallel download slots used by Fido.fetch, by default 5
+    offline : bool, optional
+        If False, will try to download missing data files from CDAWeb (or Kiel
+        university for EPHIN L2). If True, will only use locally available
+        files in *path* (or the default SunPy download directory when *path*
+        is None). Note that when offline is enabled, no check is
+        performed whether newer versions of the data files are available on
+        the server; the latest locally available version is used. By default
+        False.
 
     Returns
     -------
@@ -122,28 +130,42 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
         raise ValueError('"pos_timestamp" must be either "original", "center", or "start"!')
 
     if dataset == 'SOHO_COSTEP-EPHIN_L2-1MIN':
-        df, metadata = soho_ephin_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp)
+        df, metadata = soho_ephin_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
     else:
-        trange = a.Time(startdate, enddate)
-        cda_dataset = a.cdaweb.Dataset(dataset)
         try:
-            result = Fido.search(trange, cda_dataset)
-            filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
-            filelist.sort()
-            if path is None:
-                filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
-            elif type(path) is str:
-                filelist = [path + os.sep + f for f in filelist]
-            downloaded_files = filelist
+            # ---- file acquisition ----------------------------------------
+            if not offline:
+                trange = a.Time(startdate, enddate)
+                cda_dataset = a.cdaweb.Dataset(dataset)
+                result = Fido.search(trange, cda_dataset)
+                filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
+                filelist.sort()
+                if path is None:
+                    filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
+                elif type(path) is str:
+                    filelist = [path + os.sep + f for f in filelist]
+                downloaded_files = filelist
 
-            for i, f in enumerate(filelist):
-                if os.path.exists(f) and os.path.getsize(f) == 0:
-                    os.remove(f)
-                if not os.path.exists(f):
-                    _downloaded_file = Fido.fetch(result[0][i], path=path, max_conn=max_conn)
+                for i, f in enumerate(filelist):
+                    if os.path.exists(f) and os.path.getsize(f) == 0:
+                        os.remove(f)
+                    if not os.path.exists(f):
+                        _downloaded_file = Fido.fetch(result[0][i], path=path, max_conn=max_conn)
+            else:
+                if path is None:
+                    data_path = sunpy.config.get('downloads', 'download_dir')
+                else:
+                    data_path = path
+                custom_notification(
+                    f'offline mode enabled, loading local files only from '
+                    f'{data_path}. No check is performed whether newer versions '
+                    f'of the data files are available on the server.'
+                )
+                downloaded_files = get_local_files(data_path, dataset, startdate, enddate)
+                if not downloaded_files:
+                    print(f'No local files found for "{dataset}" in {data_path}')
+                    return [], []
 
-            # downloaded_files = Fido.fetch(result, path=path, max_conn=max_conn)  # use Fido.fetch(result, path='/ThisIs/MyPath/to/Data/{file}') to use a specific local folder for saving data files
-            # downloaded_files.sort()
             data = TimeSeries(downloaded_files, concatenate=True)
             df = data.to_dataframe()
 
@@ -271,7 +293,7 @@ def soho_ephin_download(date, path=None):
     return downloaded_file
 
 
-def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=False, pos_timestamp='center', use_uncorrected_data_on_own_risk=False):
+def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=False, pos_timestamp='center', use_uncorrected_data_on_own_risk=False, offline=False):
     """
     Load SOHO/EPHIN level 2 ascii data and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
 
@@ -283,7 +305,7 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
         end date
     resample : str, optional
         resample frequency in format understandable by Pandas, e.g. '1min', by default None.
-        Note that this is just a simple wrapper around thepandas
+        Note that this is just a simple wrapper around the pandas
         resample function that is calculating the mean of the data in the new
         time bins. This is not necessarily the correct way to resample data,
         depending on the data type (for example for errors)!
@@ -294,6 +316,12 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
     pos_timestamp : {str}, optional
         change the position of the timestamp: 'center' or 'start' of the accumulation interval,
         or 'original' to do nothing, by default 'center'.
+    use_uncorrected_data_on_own_risk : bool, optional
+        If True, return uncorrected proton and helium data, by default False.
+    offline : bool, optional
+        If False, will try to download missing data files from Kiel university.
+        If True, will only use locally available files in *path* (or the
+        default SunPy download directory when *path* is None). By default False.
 
     Returns
     -------
@@ -305,6 +333,12 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
 
     if not path:
         path = sunpy.config.get('downloads', 'download_dir') + os.sep
+
+    # if offline:
+    #     custom_warning(
+    #         f'offline mode enabled, loading local files only from '
+    #         f'{path}. '
+    #     )
 
     # create list of files to load:
     dates = pd.date_range(start=startdate, end=enddate, freq='D')
@@ -320,8 +354,12 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
         try:
             file = glob.glob(f"{path}{os.sep}{name}.rl2")[0]
         except IndexError:
-            print(f"File {name}.rl2 not found locally at {path}.")
-            file = soho_ephin_download(dates[i], path)
+            if not offline:
+                print(f"File {name}.rl2 not found locally at {path}.")
+                file = soho_ephin_download(dates[i], path)
+            else:
+                custom_warning(f"File {name}.rl2 not found locally at {path}. Skipping (offline mode enabled).")
+                file = ''
         if len(file) > 0:
             filelist.append(file)
     if len(filelist) > 0:
