@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 
 # manual switch to test offline loading locally
-OFFLINE = True
+OFFLINE = False
 
 def test_bepi_sixs_load_online():
     startdate = dt.datetime(2020, 10, 9, 12, 0)
