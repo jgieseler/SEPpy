@@ -7,7 +7,7 @@ import requests
 import sunpy
 from bs4 import BeautifulSoup
 from packaging.version import Version
-from seppy.util import resample_df
+from seppy.util import custom_warning, resample_df
 from sunpy.timeseries import TimeSeries
 
 logger = pooch.get_logger()
@@ -91,7 +91,7 @@ def juice_radem_download(date, path=None):
         return None
 
 
-def juice_radem_load(startdate, enddate, resample=None, path=None, pos_timestamp='center'):
+def juice_radem_load(startdate, enddate, resample=None, path=None, pos_timestamp='center', offline=False):
     """Download & load JUICE/RADEM cruise science data and returns it as Pandas DataFrame (and metadata dictionaries).
     Note that the data is provided in counts and not converted to physical units (as of Nov 2025); also the instrument configuration changes over time.
 
@@ -107,6 +107,12 @@ def juice_radem_load(startdate, enddate, resample=None, path=None, pos_timestamp
         local path where the files are stored / will be downloaded to
     pos_timestamp : str
         position of the timestamp when resampling ('start', 'center', 'end')
+    offline : bool, optional
+        If False, will try to download missing data files from ESA's PSA. If
+        True, will only use locally available files in *path* (or the default
+        SunPy download directory when *path* is None). Note that when
+        offline is disabled, no check is performed whether newer versions
+        of the data files are available on the server. By default False.
 
     Returns
     -------
@@ -118,17 +124,45 @@ def juice_radem_load(startdate, enddate, resample=None, path=None, pos_timestamp
         Dictionary containing the JUICE/RADEM data metadata
     """
 
+    # use sunpy download directory if no path is provided
+    if not path:
+        path = sunpy.config.get('downloads', 'download_dir')
+
+    # add a OS-specific '/' to end of 'path'
+    if path:
+        if not path[-1] == os.sep:
+            path = f'{path}{os.sep}'
+
+    if offline:
+        custom_notification(
+            f'offline mode enabled, loading local files only from '
+            f'{path}. No check is performed whether newer versions '
+            f'of the data files are available on the server.'
+        )
+
     # Generate list of dates between startdate and enddate
     dates = pd.date_range(start=startdate, end=enddate, freq='D')
 
     downloaded_files = []
     for date in dates:
-        fname = juice_radem_download(date, path=path)
-        if fname:
-            downloaded_files.append(fname)
+        if not offline:
+            fname = juice_radem_download(date, path=path)
+            if fname:
+                downloaded_files.append(fname)
+        else:
+            # look for local files matching this date
+            import glob
+            pattern = f"{path}radem_raw_sc_{date.year}{date.strftime('%m')}{date.strftime('%d')}__*.cdf"
+            matches = sorted(glob.glob(pattern))
+            if matches:
+                # take the last match (highest version if naming is consistent)
+                downloaded_files.append(matches[-1])
+            else:
+                custom_warning(f"File radem_raw_sc_{date.year}{date.strftime('%m')}{date.strftime('%d')}__*.cdf "
+                               f"not found locally at {path}. Skipping (offline mode enabled).")
 
     if not downloaded_files:
-        print("No data files were downloaded.")
+        print("No data files found.")
         return pd.DataFrame(), {}, {}
 
     # Load the data using SunPy TimeSeries

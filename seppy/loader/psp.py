@@ -14,7 +14,7 @@ from sunpy.net import Fido
 from sunpy.net import attrs as a
 from sunpy.timeseries import TimeSeries
 
-from seppy.util import custom_warning, resample_df
+from seppy.util import custom_warning, get_local_files, resample_df, custom_notification
 
 # Not needed atm as units are skipped in the modified read_cdf
 # if hasattr(sunpy, "__version__") and Version(sunpy.__version__) >= Version("5.0.0"):
@@ -44,7 +44,8 @@ def _get_cdf_vars(cdf):
     return var_list
 
 
-def psp_isois_load(dataset, startdate, enddate, epilo_channel='F', epilo_threshold=None, path=None, resample=None, all_columns=False):
+def psp_isois_load(dataset, startdate, enddate, epilo_channel='F', epilo_threshold=None,
+                   path=None, resample=None, all_columns=False, offline=False):
     """
     Downloads CDF files via SunPy/Fido from CDAWeb for ISOIS onboard PSP
 
@@ -71,13 +72,20 @@ def psp_isois_load(dataset, startdate, enddate, epilo_channel='F', epilo_thresho
         Local path for storing downloaded data, by default None
     resample : str, optional
         resample frequency in format understandable by Pandas, e.g. '1min', by default None.
-        Note that this is just a simple wrapper around thepandas
+        Note that this is just a simple wrapper around the pandas
         resample function that is calculating the mean of the data in the new
         time bins. This is not necessarily the correct way to resample data,
         depending on the data type (for example for errors)!
     all_columns : boolean, optional
         Whether to return all columns of the datafile for EPILO (or skip
         usually unneeded columns for better performance), by default False
+    offline : bool, optional
+        If False, will try to download missing data files from CDAWeb using
+        SunPy/Fido. If True, will only use locally available files in *path*
+        (or the default SunPy download directory when *path* is None). Note
+        that when offline is enabled, no check is performed whether
+        newer versions of the data files are available on the server; the
+        latest locally available version is used. By default False.
     Returns
     -------
     df : Pandas dataframe
@@ -87,23 +95,39 @@ def psp_isois_load(dataset, startdate, enddate, epilo_channel='F', epilo_thresho
         NOTE: For EPIHI energy values are only loaded from the first day of the interval!
         For EPILO energy values are the mean of the whole loaded interval.
     """
-    trange = a.Time(startdate, enddate)
-    cda_dataset = a.cdaweb.Dataset(dataset)
     try:
-        result = Fido.search(trange, cda_dataset)
-        filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
-        filelist.sort()
-        if path is None:
-            filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
-        elif type(path) is str:
-            filelist = [path + os.sep + f for f in filelist]
-        downloaded_files = filelist
+        # ---- file acquisition ------------------------------------------------
+        if not offline:
+            trange = a.Time(startdate, enddate)
+            cda_dataset = a.cdaweb.Dataset(dataset)
+            result = Fido.search(trange, cda_dataset)
+            filelist = [i[0].split('/')[-1] for i in result.show('URL')[0]]
+            filelist.sort()
+            if path is None:
+                filelist = [sunpy.config.get('downloads', 'download_dir') + os.sep + file for file in filelist]
+            elif type(path) is str:
+                filelist = [path + os.sep + f for f in filelist]
+            downloaded_files = filelist
 
-        for i, f in enumerate(filelist):
-            if os.path.exists(f) and os.path.getsize(f) == 0:
-                os.remove(f)
-            if not os.path.exists(f):
-                _downloaded_file = Fido.fetch(result[0][i], path=path, max_conn=1)
+            for i, f in enumerate(filelist):
+                if os.path.exists(f) and os.path.getsize(f) == 0:
+                    os.remove(f)
+                if not os.path.exists(f):
+                    _downloaded_file = Fido.fetch(result[0][i], path=path, max_conn=1)
+        else:
+            if path is None:
+                data_path = sunpy.config.get('downloads', 'download_dir')
+            else:
+                data_path = path
+            custom_notification(
+                f'offline mode enabled, loading local files only from '
+                f'{data_path}. No check is performed whether newer versions '
+                f'of the data files are available on the server.'
+            )
+            downloaded_files = get_local_files(data_path, dataset, startdate, enddate)
+            if not downloaded_files:
+                print(f'No local files found for "{dataset}" in {data_path}')
+                return pd.DataFrame(), []
 
         # loading for EPIHI
         if dataset.split('-')[1] == 'EPIHI_L2':
