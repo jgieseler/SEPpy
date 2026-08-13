@@ -201,11 +201,11 @@ def stereo_sept_loader(startdate, enddate, spacecraft, species, viewing, resampl
     if not path:
         path = sunpy.config.get('downloads', 'download_dir') + os.sep
 
-    # if offline:
-    #     custom_warning(
-    #         f'offline mode enabled, loading local files only from '
-    #         f'{path}. '
-    #     )
+    if offline:
+        custom_notification(
+            f'Offline mode enabled for STEREO/SEPT, loading local files only from '
+            f'{path}. '
+        )
 
     # create list of files to load:
     dates = pd.date_range(start=startdate, end=enddate, freq='D')
@@ -473,7 +473,7 @@ def stereo_load(instrument, startdate, enddate, spacecraft='ahead', mag_coord='R
                 else:
                     data_path = path
                 custom_notification(
-                    f'offline mode enabled, loading local files only from '
+                    f'Offline mode enabled for STEREO/{instrument.upper()}, loading local files only from '
                     f'{data_path}. No check is performed whether newer versions '
                     f'of the data files are available on the server.'
                 )

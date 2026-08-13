@@ -135,7 +135,7 @@ def juice_radem_load(startdate, enddate, resample=None, path=None, pos_timestamp
 
     if offline:
         custom_notification(
-            f'offline mode enabled, loading local files only from '
+            f'Offline mode enabled for JUICE/RADEM, loading local files only from '
             f'{path}. No check is performed whether newer versions '
             f'of the data files are available on the server.'
         )

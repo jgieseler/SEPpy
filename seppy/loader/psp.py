@@ -120,7 +120,7 @@ def psp_isois_load(dataset, startdate, enddate, epilo_channel='F', epilo_thresho
             else:
                 data_path = path
             custom_notification(
-                f'offline mode enabled, loading local files only from '
+                f'Offline mode enabled for PSP/ISOIS, loading local files only from '
                 f'{data_path}. No check is performed whether newer versions '
                 f'of the data files are available on the server.'
             )

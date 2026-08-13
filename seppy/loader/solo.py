@@ -94,7 +94,7 @@ def mag_load(startdate, enddate, level='l2', data_type='normal', frame='rtn', pa
         else:
             data_path = path
         custom_notification(
-            f'offline mode enabled, loading local files only from '
+            f'Offline mode enabled for SolO/MAG, loading local files only from '
             f'{data_path}. No check is performed whether newer versions '
             f'of the data files are available on the server.'
         )
