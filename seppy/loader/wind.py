@@ -295,7 +295,7 @@ def wind3dp_load(dataset, startdate, enddate, resample="1min", multi_index=True,
         else:
             data_path = path
         custom_notification(
-            f'offline mode enabled, loading local files only from '
+            f'Offline mode enabled for Wind/3DP, loading local files only from '
             f'{data_path}. No check is performed whether newer versions '
             f'of the data files are available on the server.'
         )

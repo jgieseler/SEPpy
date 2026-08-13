@@ -157,7 +157,7 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
                 else:
                     data_path = path
                 custom_notification(
-                    f'offline mode enabled, loading local files only from '
+                    f'Offline mode enabled for SOHO/{dataset}, loading local files only from '
                     f'{data_path}. No check is performed whether newer versions '
                     f'of the data files are available on the server.'
                 )
