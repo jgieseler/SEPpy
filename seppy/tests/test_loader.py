@@ -170,9 +170,9 @@ def test_soho_erne_hed_load_online():
     df, meta = soho_load(dataset='SOHO_ERNE-HED_L2-1MIN', startdate="2021/04/16", enddate="2021/04/17",
                          path=None, resample="1min", pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
-    assert df.shape == (1145, 41)
-    assert meta['channels_dict_df_p']['ch_strings'].iloc[9] == '100 - 130 MeV'
-    assert df['PHC_9'].sum() == 1295.0
+    assert df.shape == (1145, 29)
+    assert meta['channels_dict_df_p']['ch_strings'].iloc[0] == '13  - 16 MeV'
+    assert df['PHC_0'].sum() == 417.0
 
 
 def test_soho_erne_led_load_online():
