@@ -74,7 +74,7 @@ def _get_metadata(dataset, path_to_cdf):
     return metadata
 
 
-def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', max_conn=5, offline=False):
+def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', max_conn=5, offline=False, use_uncorrected_data_on_own_risk=False):
     """
     Download CDF files via SunPy/Fido from CDAWeb for CELIAS, EPHIN, ERNE onboard SOHO
 
@@ -114,6 +114,10 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
         performed whether newer versions of the data files are available on
         the server; the latest locally available version is used. By default
         False.
+    use_uncorrected_data_on_own_risk : bool, optional
+        If True, return for SOHO/ERNE-HED uncorrected proton and helium data.
+        If False, the highest three energy channels are set to NaN. By default
+        False. 
 
     Returns
     -------
@@ -207,6 +211,29 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
                     cols_unc = 'auto'
                     keywords_unc = ['_sys_', '_stat_']
                 df = resample_df(df, resample, pos_timestamp=pos_timestamp, cols_unc=cols_unc, verbose=False, keywords_unc=keywords_unc)
+
+            # <-- Remove untrusty 3 highest energy channels of ERNE-HED. TODO: Undo this when the data has been corrected!
+            if dataset.upper() in ['SOHO_ERNE-HED_L2-1MIN', 'SOHO_ERNE-LED_L2-1MIN']:
+                if use_uncorrected_data_on_own_risk:
+                    custom_warning("SOHO/ERNE: Three highest proton and helium energy channels are uncorrected! Know what you're doing and use at own risk!")
+                else:
+                    custom_notification("SOHO/ERNE: Three highest proton and helium channels are not supported at the moment and removed!")
+                    cols_to_remove = [c for c in df.columns if c.endswith(('7', '8', '9'))]
+                    # df[cols_to_remove] = np.nan
+                    df = df.drop(columns=cols_to_remove)
+
+                    # Remove the highest 3 He and proton channels from metadata
+                    for key in ["He_E_label", "He_energy", "He_energy_delta",
+                                "P_E_label", "P_energy", "P_energy_delta"]:
+                        if key in metadata:
+                            metadata[key] = metadata[key][:-3]
+
+                    # Remove highest 3 rows in channel DataFrames
+                    for key in ["channels_dict_df_He", "channels_dict_df_p"]:
+                        if key in metadata:
+                            metadata[key] = metadata[key].iloc[:-3].copy()
+
+            # Remove untrusty 3 highest energy channels of ERNE-HED -->
         except (RuntimeError, IndexError):
             print(f'Unable to obtain "{dataset}" data!')
             downloaded_files = []
