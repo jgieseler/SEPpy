@@ -213,7 +213,7 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
                 df = resample_df(df, resample, pos_timestamp=pos_timestamp, cols_unc=cols_unc, verbose=False, keywords_unc=keywords_unc)
 
             # <-- Remove untrusty 3 highest energy channels of ERNE-HED. TODO: Undo this when the data has been corrected!
-            if dataset.upper() in ['SOHO_ERNE-HED_L2-1MIN', 'SOHO_ERNE-LED_L2-1MIN']:
+            if dataset.upper() in ['SOHO_ERNE-HED_L2-1MIN']:
                 if use_uncorrected_data_on_own_risk:
                     custom_warning("SOHO/ERNE: Three highest proton and helium energy channels are uncorrected! Know what you're doing and use at own risk!")
                 else:
