@@ -171,7 +171,7 @@ def test_soho_erne_hed_load_online():
                          path=None, resample="1min", pos_timestamp='center', offline=OFFLINE)
     assert isinstance(df, pd.DataFrame)
     assert df.shape == (1145, 29)
-    assert meta['channels_dict_df_p']['ch_strings'].iloc[0] == '13  - 16 MeV'
+    assert meta['channels_dict_df_p']['ch_strings'].iloc[0] == '13  - 16  MeV'
     assert df['PHC_0'].sum() == 417.0
 
 
