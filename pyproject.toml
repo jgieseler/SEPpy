@@ -56,8 +56,12 @@ docs = [
     "sphinx",
     "sphinx-automodapi",
 ]
+
 [project.urls]
-repository = "https://github.com/serpentine-h2020/SEPpy"
+Documentation = "https://seppy.readthedocs.io"
+"Source Code" = "https://github.com/serpentine-h2020/SEPpy"
+Changelog = "https://github.com/serpentine-h2020/SEPpy/releases"
+"Issue Tracker" = "https://github.com/serpentine-h2020/SEPpy/issues"
 
 [tool.setuptools]
 zip-safe = false
