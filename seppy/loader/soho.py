@@ -320,6 +320,53 @@ def soho_ephin_download(date, path=None):
     return downloaded_file
 
 
+def soho_ephin_l3_download(date, path=None):
+    """
+    Download SOHO/EPHIN level 3 ascii data file from Kiel university to local path
+
+    Parameters
+    ----------
+    date : datetime object
+        datetime of data to retrieve
+    path : str
+        local path where the files will be stored
+
+    Returns
+    -------
+    downloaded_file : str
+        full local path to downloaded file
+    """
+
+    # add a OS-specific '/' to end end of 'path'
+    if path:
+        if not path[-1] == os.sep:
+            path = f'{path}{os.sep}'
+
+    doy = int(date.strftime('%j'))
+    year = date.year
+    if year<2000:
+        pre="eph"
+        yy=year-1900
+    else:
+        pre="epi"
+        yy=year-2000
+    name="%s%02d%03d" %(pre, yy, doy)
+    base = "http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/"
+    file = name+".lvl3hst"
+    url = base+str(date.year)+'/'+file
+
+    try:
+        downloaded_file = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=True)
+    except ModuleNotFoundError:
+        downloaded_file = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=False)
+    except requests.HTTPError:
+        print(f'No corresponding EPHIN data found at {url}')
+        downloaded_file = []
+    print('')
+
+    return downloaded_file
+
+
 def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=False, pos_timestamp='center', use_uncorrected_data_on_own_risk=False, offline=False):
     """
     Load SOHO/EPHIN level 2 ascii data and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
@@ -520,6 +567,139 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
     RED = "\033[31m"
     RESET = "\033[0m"
     custom_warning(f'SOHO/EPHIN RL2 electron data can be highly unreliable at times and {BOLD}{RED}SHOULD NOT BE USED!{RESET}')
+
+    return df, meta
+
+
+def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_columns=False, 
+                         pos_timestamp='center', offline=False):
+    """
+    Load SOHO/EPHIN level 3 ascii data and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
+
+    Parameters
+    ----------
+    startdate : str
+        start date
+    enddate : str
+        end date
+    resample : str, optional
+        resample frequency in format understandable by Pandas, e.g. '1min', by default None.
+        Note that this is just a simple wrapper around the pandas
+        resample function that is calculating the mean of the data in the new
+        time bins. This is not necessarily the correct way to resample data,
+        depending on the data type (for example for errors)!
+    path : str, optional
+        local path where the files are/should be stored, by default None
+    all_columns : boolean, optional
+        if True provide all available columns in returned dataframe, by default False
+    pos_timestamp : {str}, optional
+        change the position of the timestamp: 'center' or 'start' of the accumulation interval,
+        or 'original' to do nothing, by default 'center'.
+    offline : bool, optional
+        If False, will try to download missing data files from Kiel university.
+        If True, will only use locally available files in *path* (or the
+        default SunPy download directory when *path* is None). By default False.
+
+    Returns
+    -------
+    df : Pandas dataframe
+        dataframe with either 15 channels of electron or 30 channels of proton/ion fluxes and their respective uncertainties
+    channels_dict_df : dict
+        Pandas dataframe giving details on the measurement channels
+    """
+
+    # To be dropped columns when all_columns==False:
+    UNNECESSARY_COLUMNS = (
+                ["year", "doy", "msod"]
+                + [f"Bin{i}" for i in range(4, 31)]
+            )
+
+    if not path:
+        path = sunpy.config.get('downloads', 'download_dir') + os.sep
+
+    # Create a list of files to load:
+    dates = pd.date_range(start=startdate, end=enddate, freq='D')
+    filelist = []
+    for i, doy in enumerate(dates.day_of_year):
+        if dates[i].year<2000:
+            pre = "eph"
+            yy = dates[i].year-1900
+        else:
+            pre = "epi"
+            yy = dates[i].year-2000
+        name = "%s%02d%03d" %(pre, yy, doy)
+        try:
+            file = glob.glob(f"{path}{os.sep}{name}.lvl3_hst")[0]
+        except IndexError:
+            if not offline:
+                print(f"File {name}.lvl3_hst not found locally at {path}.")
+                file = soho_ephin_download(dates[i], path)
+            else:
+                custom_warning(f"File {name}.lvl3_hst not found locally at {path}. Skipping (offline mode enabled).")
+                file = ''
+        if len(file) > 0:
+            filelist.append(file)
+
+    if len(filelist) > 0:
+        filelist = np.sort(filelist)
+
+        # The column names as described in:
+        # https://zenodo.org/records/18225156?preview_file=undefined
+        col_names = (
+            ["date", "year", "doy", "msod"]
+            + [f"E{i}" for i in range(15)]
+            + [f"E{i}_err_syst" for i in range(15)]
+            + [f"E{i}_err_stat" for i in range(15)]
+            + [f"Bin{i}" for i in range(4, 31)]
+            + ["ring_off", "scale_factor", "contam"]
+        )
+
+        # Read files into Pandas dataframes:
+        df = pd.read_csv(filelist[0], header=None, sep=r'\s+', names=col_names)
+        if len(filelist) > 1:
+            for file in filelist[1:]:
+                t_df = pd.read_csv(file, header=None, sep=r'\s+', names=col_names)
+                df = pd.concat([df, t_df])
+
+        # Assign datetime as the index
+        df["date"] = pd.to_datetime(df["date"])
+        df.index = df["date"]
+        df.index.name = "time"
+
+        # Drop some unused columns:
+        if not all_columns:
+            df = df.drop(columns=UNNECESSARY_COLUMNS)
+
+        # CAREFUL!
+        # Adjusting the position of the timestamp manually.
+        # Requires knowledge of the original time resolution and timestamp position!
+        if pos_timestamp == "center":
+            df.index = df.index+pd.Timedelta("30s")
+
+        # Resampling (optional):
+        if isinstance(resample, str):
+            df = resample_df(df, resample, pos_timestamp=pos_timestamp, cols_unc=[], verbose=False)
+    else:
+        df = []
+
+    energies = {"E0" : 0.299,
+                "E1" : 0.328,
+                "E2" : 0.372,
+                "E3" : 0.421,
+                "E4" : 0.473,
+                "E5" : 0.530,
+                "E6" : 0.587,
+                "E7" : 0.643,
+                "E8" : 0.703,
+                "E9" : 0.761,
+                "E10" : 0.821,
+                "E11" : 0.881,
+                "E12" : 0.969,
+                "E13" : 1.104,
+                "E14" : 1.241
+                }
+
+    meta = {"energy_labels": energies}
 
     return df, meta
 
