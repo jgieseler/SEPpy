@@ -74,7 +74,8 @@ def _get_metadata(dataset, path_to_cdf):
     return metadata
 
 
-def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', max_conn=5, offline=False, use_uncorrected_data_on_own_risk=False):
+def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', 
+              max_conn=5, offline=False, use_uncorrected_data_on_own_risk=False):
     """
     Download CDF files via SunPy/Fido from CDAWeb for CELIAS, EPHIN, ERNE onboard SOHO
 
@@ -90,6 +91,8 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
           https://cdaweb.gsfc.nasa.gov/misc/NotesS.html#SOHO_ERNE-LED_L2-1MIN \n
         - 'SOHO_ERNE-HED_L2-1MIN': SOHO ERNE-HED Level2 1 minute data \n
           https://cdaweb.gsfc.nasa.gov/misc/NotesS.html#SOHO_ERNE-HED_L2-1MIN
+        - SOHO_COSTEP-EPHIN_L3E-1MIN: SOHO COSTEP-EPHIN Level3 electron 1 minute data
+          http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/
     startdate, enddate : datetime or str
         Datetime object (e.g., dt.date(2021,12,31) or dt.datetime(2021,4,15)) or "standard"
         datetime string (e.g., "2021/04/15") (enddate must always be later than startdate)
@@ -135,6 +138,9 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
 
     if dataset == 'SOHO_COSTEP-EPHIN_L2-1MIN':
         df, metadata = soho_ephin_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
+    elif dataset == "SOHO_COSTEP-EPHIN_L3E-1MIN":
+        print(":D")
+        df, metadata = soho_ephin_l3_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
     else:
         try:
             # ---- file acquisition ----------------------------------------
@@ -350,7 +356,7 @@ def soho_ephin_l3_download(date, path=None) -> str | list:
     else:
         pre="epi"
         yy: int = year-2000
-    name="%s%02d%03d" %(pre, yy, doy)
+    name: str= date.strftime("%Y-%m-%d")
     base = "http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/"
     file: str = name+".lvl3hst"
     url: str = base+str(date.year)+'/'+file
@@ -608,10 +614,12 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
         A dataframe giving details on the measurement channels
     """
 
+    LVL3_E_CHANNELS_NUM: int = 14
+
     # To be dropped columns when all_columns==False:
     UNNECESSARY_COLUMNS: list[str] = (
-                ["year", "doy", "msod"]
-                + [f"Bin{i}" for i in range(4, 31)]
+                ["date", "year", "doy", "msod"]
+                + [f"Bin{i}" for i in range(4, 31+1)]
             )
 
     if not path:
@@ -622,16 +630,16 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
     filelist: list = []
     for i, date in enumerate(dates):
 
-        name: str = date.strftime('%Y%m%d')
+        name: str = date.strftime("%Y-%m-%d")
 
         try:
-            file: str = glob.glob(f"{path}{os.sep}{name}.lvl3_hst")[0]
+            file: str = glob.glob(f"{path}{os.sep}{name}.lvl3hst")[0]
         except IndexError:
             if not offline:
-                print(f"File {name}.lvl3_hst not found locally at {path}.")
-                file: str = soho_ephin_download(dates[i], path)
+                print(f"File {name}.lvl3hst not found locally at {path}.")
+                file: str = soho_ephin_l3_download(date, path)
             else:
-                custom_warning(f"File {name}.lvl3_hst not found locally at {path}. Skipping (offline mode enabled).")
+                custom_warning(f"File {name}.lvl3hst not found locally at {path}. Skipping (offline mode enabled).")
                 file: str = ''
 
         if len(file) > 0:
@@ -644,18 +652,18 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
         # https://zenodo.org/records/18225156?preview_file=undefined
         col_names: list[str] = (
             ["date", "year", "doy", "msod"]
-            + [f"E{i}" for i in range(15)]
-            + [f"E{i}_err_syst" for i in range(15)]
-            + [f"E{i}_err_stat" for i in range(15)]
-            + [f"Bin{i}" for i in range(4, 31)]
+            + [f"E{i}" for i in range(LVL3_E_CHANNELS_NUM+1)]
+            + [f"E{i}_err_syst" for i in range(LVL3_E_CHANNELS_NUM+1)]
+            + [f"E{i}_err_stat" for i in range(LVL3_E_CHANNELS_NUM+1)]
+            + [f"Bin{i}" for i in range(4, 31+1)]
             + ["ring_off", "scale_factor", "contam"]
         )
 
         # Read files into Pandas dataframes:
-        df = pd.read_csv(filelist[0], header=None, sep=r'\s+', names=col_names)
+        df = pd.read_csv(filelist[0], header=0, sep=r'\s+', names=col_names)
         if len(filelist) > 1:
             for file in filelist[1:]:
-                t_df = pd.read_csv(file, header=None, sep=r'\s+', names=col_names)
+                t_df: pd.DataFrame = pd.read_csv(file, header=0, sep=r'\s+', names=col_names)
                 df = pd.concat([df, t_df])
 
         # Assign datetime as the index
