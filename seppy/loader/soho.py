@@ -320,7 +320,7 @@ def soho_ephin_download(date, path=None):
     return downloaded_file
 
 
-def soho_ephin_l3_download(date, path=None):
+def soho_ephin_l3_download(date, path=None) -> str | list:
     """
     Download SOHO/EPHIN level 3 ascii data file from Kiel university to local path
 
@@ -334,7 +334,7 @@ def soho_ephin_l3_download(date, path=None):
     Returns
     -------
     downloaded_file : str
-        full local path to downloaded file
+        full local path to downloaded file, or an empty list if no file was found.
     """
 
     # add a OS-specific '/' to end end of 'path'
@@ -343,25 +343,25 @@ def soho_ephin_l3_download(date, path=None):
             path = f'{path}{os.sep}'
 
     doy = int(date.strftime('%j'))
-    year = date.year
+    year: int = date.year
     if year<2000:
         pre="eph"
-        yy=year-1900
+        yy: int = year-1900
     else:
         pre="epi"
-        yy=year-2000
+        yy: int = year-2000
     name="%s%02d%03d" %(pre, yy, doy)
     base = "http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/"
-    file = name+".lvl3hst"
-    url = base+str(date.year)+'/'+file
+    file: str = name+".lvl3hst"
+    url: str = base+str(date.year)+'/'+file
 
     try:
-        downloaded_file = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=True)
+        downloaded_file: str = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=True)
     except ModuleNotFoundError:
-        downloaded_file = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=False)
+        downloaded_file: str = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=False)
     except requests.HTTPError:
         print(f'No corresponding EPHIN data found at {url}')
-        downloaded_file = []
+        downloaded_file: list = []
     print('')
 
     return downloaded_file
@@ -572,7 +572,7 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
 
 
 def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_columns=False, 
-                         pos_timestamp='center', offline=False):
+                         pos_timestamp='center', offline=False) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
     """
     Load SOHO/EPHIN level 3 ascii data and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
 
@@ -602,41 +602,38 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
 
     Returns
     -------
-    df : Pandas dataframe
-        dataframe with either 15 channels of electron or 30 channels of proton/ion fluxes and their respective uncertainties
+    df : Pandas DataFrame
+        Dataframe with 14 channels of electron intensities, their respective uncertainties, and additional columns for the ring status, scale factor, and contamination.
     channels_dict_df : dict
-        Pandas dataframe giving details on the measurement channels
+        A dataframe giving details on the measurement channels
     """
 
     # To be dropped columns when all_columns==False:
-    UNNECESSARY_COLUMNS = (
+    UNNECESSARY_COLUMNS: list[str] = (
                 ["year", "doy", "msod"]
                 + [f"Bin{i}" for i in range(4, 31)]
             )
 
     if not path:
-        path = sunpy.config.get('downloads', 'download_dir') + os.sep
+        path: str = sunpy.config.get('downloads', 'download_dir') + os.sep
 
     # Create a list of files to load:
-    dates = pd.date_range(start=startdate, end=enddate, freq='D')
-    filelist = []
-    for i, doy in enumerate(dates.day_of_year):
-        if dates[i].year<2000:
-            pre = "eph"
-            yy = dates[i].year-1900
-        else:
-            pre = "epi"
-            yy = dates[i].year-2000
-        name = "%s%02d%03d" %(pre, yy, doy)
+    dates: pd.DatetimeIndex = pd.date_range(start=startdate, end=enddate, freq='D')
+    filelist: list = []
+    for i, date in enumerate(dates):
+
+        name: str = date.strftime('%Y%m%d')
+
         try:
-            file = glob.glob(f"{path}{os.sep}{name}.lvl3_hst")[0]
+            file: str = glob.glob(f"{path}{os.sep}{name}.lvl3_hst")[0]
         except IndexError:
             if not offline:
                 print(f"File {name}.lvl3_hst not found locally at {path}.")
-                file = soho_ephin_download(dates[i], path)
+                file: str = soho_ephin_download(dates[i], path)
             else:
                 custom_warning(f"File {name}.lvl3_hst not found locally at {path}. Skipping (offline mode enabled).")
-                file = ''
+                file: str = ''
+
         if len(file) > 0:
             filelist.append(file)
 
@@ -645,7 +642,7 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
 
         # The column names as described in:
         # https://zenodo.org/records/18225156?preview_file=undefined
-        col_names = (
+        col_names: list[str] = (
             ["date", "year", "doy", "msod"]
             + [f"E{i}" for i in range(15)]
             + [f"E{i}_err_syst" for i in range(15)]
@@ -680,9 +677,9 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
         if isinstance(resample, str):
             df = resample_df(df, resample, pos_timestamp=pos_timestamp, cols_unc=[], verbose=False)
     else:
-        df = []
+        df: list = []
 
-    energies = {"E0" : 0.299,
+    energies: dict[str, float] = {"E0" : 0.299,
                 "E1" : 0.328,
                 "E2" : 0.372,
                 "E3" : 0.421,
@@ -699,7 +696,7 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
                 "E14" : 1.241
                 }
 
-    meta = {"energy_labels": energies}
+    meta: dict[str, dict[str, float]] = {"energy_labels": energies}
 
     return df, meta
 
