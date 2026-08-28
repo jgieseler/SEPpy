@@ -139,7 +139,6 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
     if dataset == 'SOHO_COSTEP-EPHIN_L2-1MIN':
         df, metadata = soho_ephin_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
     elif dataset == "SOHO_COSTEP-EPHIN_L3E-1MIN":
-        print(":D")
         df, metadata = soho_ephin_l3_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
     else:
         try:
