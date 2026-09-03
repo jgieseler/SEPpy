@@ -85,14 +85,15 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
         Name of SOHO dataset: \n
         - 'SOHO_COSTEP-EPHIN_L2-1MIN': SOHO COSTEP-EPHIN Level2 1 minute data \n
           https://www.ieap.uni-kiel.de/et/ag-heber/costep/data.php \n
+        - 'SOHO_COSTEP-EPHIN_L3E-1MIN': SOHO COSTEP-EPHIN Level3 electron 1 minute data \n
+          https://doi.org/10.5281/zenodo.18225156 \n
+          http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/ \n
         - 'SOHO_COSTEP-EPHIN_L3I-1MIN': SOHO COSTEP-EPHIN Level3 intensity 1 minute data \n
           https://cdaweb.gsfc.nasa.gov/misc/NotesS.html#SOHO_COSTEP-EPHIN_L3I-1MIN \n
         - 'SOHO_ERNE-LED_L2-1MIN': SOHO ERNE-LED Level2 1 minute data - VERY OFTEN NO DATA! \n
           https://cdaweb.gsfc.nasa.gov/misc/NotesS.html#SOHO_ERNE-LED_L2-1MIN \n
         - 'SOHO_ERNE-HED_L2-1MIN': SOHO ERNE-HED Level2 1 minute data \n
           https://cdaweb.gsfc.nasa.gov/misc/NotesS.html#SOHO_ERNE-HED_L2-1MIN
-        - SOHO_COSTEP-EPHIN_L3E-1MIN: SOHO COSTEP-EPHIN Level3 electron 1 minute data
-          http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/
     startdate, enddate : datetime or str
         Datetime object (e.g., dt.date(2021,12,31) or dt.datetime(2021,4,15)) or "standard"
         datetime string (e.g., "2021/04/15") (enddate must always be later than startdate)
@@ -579,7 +580,8 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
 def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_columns=False, 
                          pos_timestamp='center', offline=False) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
     """
-    Load SOHO/EPHIN level 3 ascii data and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
+    Load SOHO/EPHIN level 3 electron ascii data (https://doi.org/10.5281/zenodo.18225156)
+    and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
 
     Parameters
     ----------
@@ -648,7 +650,7 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
         filelist = np.sort(filelist)
 
         # The column names as described in:
-        # https://zenodo.org/records/18225156?preview_file=undefined
+        # https://doi.org/10.5281/zenodo.18225156
         col_names: list[str] = (
             ["date", "year", "doy", "msod"]
             + [f"E{i}" for i in range(LVL3_E_CHANNELS_NUM+1)]
