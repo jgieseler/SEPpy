@@ -140,7 +140,7 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
     if dataset == 'SOHO_COSTEP-EPHIN_L2-1MIN':
         df, metadata = soho_ephin_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
     elif dataset == "SOHO_COSTEP-EPHIN_L3E-1MIN":
-        df, metadata = soho_ephin_l3_loader(startdate, enddate, resample=resample, path=path, all_columns=True, pos_timestamp=pos_timestamp, offline=offline)
+        df, metadata = soho_ephin_l3_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
     else:
         try:
             # ---- file acquisition ----------------------------------------
@@ -577,7 +577,7 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
     return df, meta
 
 
-def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_columns=True, 
+def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_columns=False, 
                          pos_timestamp='center', offline=False) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
     """
     Load SOHO/EPHIN level 3 electron ascii data (https://doi.org/10.5281/zenodo.18225155)
@@ -678,13 +678,21 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
 
         # CAREFUL!
         # Adjusting the position of the timestamp manually.
-        # Requires knowledge of the original time resolution and timestamp position!
+        # Requires knowledge of the original timestamp position!
+        # The data has the timestamp at the start of the accumulation interval
+        # (priv. comm. S. Jensen), so we need to shift it by half the interval,
+        # which changed from 8 minutes before 2023 to 1 minute after 2023. Doing
+        # this automatically deducing the interval from the data, as done here,
+        # should be robust to this change.
         if pos_timestamp == "center":
-            df.index = df.index+pd.Timedelta("30s")
+            intervals = df.index.to_series().diff().shift(-1)  # interval[i] = index[i+1] - index[i]
+            half_intervals = intervals / 2
+            half_intervals = half_intervals.ffill()  # fill last NaT with previous value
+            df.index = df.index + half_intervals.values
 
         # Resampling (optional):
         if isinstance(resample, str):
-            df = resample_df(df, resample, pos_timestamp=pos_timestamp, cols_unc=[], verbose=False)
+            df = resample_df(df, resample, pos_timestamp=pos_timestamp, cols_unc='auto', verbose=False, keywords_unc=['_err_syst', '_err_stat'])
     else:
         df: list = []
 
