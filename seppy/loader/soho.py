@@ -86,7 +86,7 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
         - 'SOHO_COSTEP-EPHIN_L2-1MIN': SOHO COSTEP-EPHIN Level2 1 minute data \n
           https://www.ieap.uni-kiel.de/et/ag-heber/costep/data.php \n
         - 'SOHO_COSTEP-EPHIN_L3E-1MIN': SOHO COSTEP-EPHIN Level3 electron 1 minute data \n
-          https://doi.org/10.5281/zenodo.18225156 \n
+          https://doi.org/10.5281/zenodo.18225155 \n
           http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/ \n
         - 'SOHO_COSTEP-EPHIN_L3I-1MIN': SOHO COSTEP-EPHIN Level3 intensity 1 minute data \n
           https://cdaweb.gsfc.nasa.gov/misc/NotesS.html#SOHO_COSTEP-EPHIN_L3I-1MIN \n
@@ -580,7 +580,7 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
 def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_columns=True, 
                          pos_timestamp='center', offline=False) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
     """
-    Load SOHO/EPHIN level 3 electron ascii data (https://doi.org/10.5281/zenodo.18225156)
+    Load SOHO/EPHIN level 3 electron ascii data (https://doi.org/10.5281/zenodo.18225155)
     and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
 
     Parameters
@@ -611,8 +611,8 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
     -------
     df : Pandas DataFrame
         Dataframe with 14 channels of electron intensities, their respective uncertainties, and additional columns for the ring status, scale factor, and contamination.
-    channels_dict_df : dict
-        A dataframe giving details on the measurement channels
+    metadata : dict
+        A dictionary giving details on the measurement channels
     """
 
     LVL3_E_CHANNELS_NUM: int = 14
@@ -650,7 +650,7 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
         filelist = np.sort(filelist)
 
         # The column names as described in:
-        # https://doi.org/10.5281/zenodo.18225156
+        # https://doi.org/10.5281/zenodo.18225155
         col_names: list[str] = (
             ["date", "year", "doy", "msod"]
             + [f"E{i}" for i in range(LVL3_E_CHANNELS_NUM+1)]
@@ -688,26 +688,28 @@ def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_colum
     else:
         df: list = []
 
-    energies: dict[str, float] = {"E0" : 0.299,
-                "E1" : 0.328,
-                "E2" : 0.372,
-                "E3" : 0.421,
-                "E4" : 0.473,
-                "E5" : 0.530,
-                "E6" : 0.587,
-                "E7" : 0.643,
-                "E8" : 0.703,
-                "E9" : 0.761,
-                "E10" : 0.821,
-                "E11" : 0.881,
-                "E12" : 0.969,
-                "E13" : 1.104,
-                "E14" : 1.241
+    energies: np.ndarray = np.array([0.299, 0.328, 0.372, 0.421, 0.473, 0.530, 0.587, 0.643, 0.703, 0.761, 0.821, 0.881, 0.969, 1.104, 1.241])
+    energy_labels: list[str] = [f'{e:.3f} MeV' for e in energies]
+    channels_dict_df_e: pd.DataFrame = pd.DataFrame({
+                                                     'ch_strings': energy_labels,
+                                                     'mean_E': energies,
+                                                     'lower_E': np.nan,
+                                                     'upper_E': np.nan,
+                                                     'DE': np.nan
+                                                     })
+
+    metadata = {
+                'General_INFO': 'https://doi.org/10.5281/zenodo.18225155',
+                'Electron_ENERGY_LABL': energy_labels,
+                'Electron_ENERGY': energies,
+                'Electron_ENERGY_UNITS': 'MeV',
+                'Electron_ENERGY_INFO': 'Effective energy of the electron channels in MeV',
+                'Electron_FLUX_LABL': 'Electron flux',
+                'Electron_FLUX_UNITS': '(MeV cm^2 sr s)^(-1)',
+                'channels_dict_df_e': channels_dict_df_e,
                 }
 
-    meta: dict[str, dict[str, float]] = {"energy_labels": energies}
-
-    return df, meta
+    return df, metadata
 
 
 def doy2dt(year, doy):
