@@ -74,7 +74,8 @@ def _get_metadata(dataset, path_to_cdf):
     return metadata
 
 
-def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', max_conn=5, offline=False, use_uncorrected_data_on_own_risk=False):
+def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timestamp='center', 
+              max_conn=5, offline=False, use_uncorrected_data_on_own_risk=False):
     """
     Download CDF files via SunPy/Fido from CDAWeb for CELIAS, EPHIN, ERNE onboard SOHO
 
@@ -84,6 +85,9 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
         Name of SOHO dataset: \n
         - 'SOHO_COSTEP-EPHIN_L2-1MIN': SOHO COSTEP-EPHIN Level2 1 minute data \n
           https://www.ieap.uni-kiel.de/et/ag-heber/costep/data.php \n
+        - 'SOHO_COSTEP-EPHIN_L3E-1MIN': SOHO COSTEP-EPHIN Level3 electron 1 minute data \n
+          https://doi.org/10.5281/zenodo.18225155 \n
+          http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/ \n
         - 'SOHO_COSTEP-EPHIN_L3I-1MIN': SOHO COSTEP-EPHIN Level3 intensity 1 minute data \n
           https://cdaweb.gsfc.nasa.gov/misc/NotesS.html#SOHO_COSTEP-EPHIN_L3I-1MIN \n
         - 'SOHO_ERNE-LED_L2-1MIN': SOHO ERNE-LED Level2 1 minute data - VERY OFTEN NO DATA! \n
@@ -135,6 +139,8 @@ def soho_load(dataset, startdate, enddate, path=None, resample=None, pos_timesta
 
     if dataset == 'SOHO_COSTEP-EPHIN_L2-1MIN':
         df, metadata = soho_ephin_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
+    elif dataset == "SOHO_COSTEP-EPHIN_L3E-1MIN":
+        df, metadata = soho_ephin_l3_loader(startdate, enddate, resample=resample, path=path, all_columns=False, pos_timestamp=pos_timestamp, offline=offline)
     else:
         try:
             # ---- file acquisition ----------------------------------------
@@ -315,6 +321,53 @@ def soho_ephin_download(date, path=None):
     except requests.HTTPError:
         print(f'No corresponding EPHIN data found at {url}')
         downloaded_file = []
+    print('')
+
+    return downloaded_file
+
+
+def soho_ephin_l3_download(date, path=None) -> str | list:
+    """
+    Download SOHO/EPHIN level 3 ascii data file from Kiel university to local path
+
+    Parameters
+    ----------
+    date : datetime object
+        datetime of data to retrieve
+    path : str
+        local path where the files will be stored
+
+    Returns
+    -------
+    downloaded_file : str
+        full local path to downloaded file, or an empty list if no file was found.
+    """
+
+    # add a OS-specific '/' to end end of 'path'
+    if path:
+        if not path[-1] == os.sep:
+            path = f'{path}{os.sep}'
+
+    doy = int(date.strftime('%j'))
+    year: int = date.year
+    if year<2000:
+        pre="eph"
+        yy: int = year-1900
+    else:
+        pre="epi"
+        yy: int = year-2000
+    name: str= date.strftime("%Y-%m-%d")
+    base = "http://ulysses.physik.uni-kiel.de/costep/level3/hist_electrons/"
+    file: str = name+".lvl3hst"
+    url: str = base+str(date.year)+'/'+file
+
+    try:
+        downloaded_file: str = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=True)
+    except ModuleNotFoundError:
+        downloaded_file: str = pooch.retrieve(url=url, known_hash=None, fname=file, path=path, progressbar=False)
+    except requests.HTTPError:
+        print(f'No corresponding EPHIN data found at {url}')
+        downloaded_file: list = []
     print('')
 
     return downloaded_file
@@ -522,6 +575,149 @@ def soho_ephin_loader(startdate, enddate, resample=None, path=None, all_columns=
     custom_warning(f'SOHO/EPHIN RL2 electron data can be highly unreliable at times and {BOLD}{RED}SHOULD NOT BE USED!{RESET}')
 
     return df, meta
+
+
+def soho_ephin_l3_loader(startdate, enddate, resample=None, path=None, all_columns=False, 
+                         pos_timestamp='center', offline=False) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
+    """
+    Load SOHO/EPHIN level 3 electron ascii data (https://doi.org/10.5281/zenodo.18225155)
+    and return it as Pandas dataframe together with a dictionary providing the energy ranges per channel
+
+    Parameters
+    ----------
+    startdate : str
+        start date
+    enddate : str
+        end date
+    resample : str, optional
+        resample frequency in format understandable by Pandas, e.g. '1min', by default None.
+        Note that this is just a simple wrapper around the pandas
+        resample function that is calculating the mean of the data in the new
+        time bins. This is not necessarily the correct way to resample data,
+        depending on the data type (for example for errors)!
+    path : str, optional
+        local path where the files are/should be stored, by default None
+    all_columns : boolean, optional
+        if True provide all available columns in returned dataframe, by default False
+    pos_timestamp : {str}, optional
+        change the position of the timestamp: 'center' or 'start' of the accumulation interval,
+        or 'original' to do nothing, by default 'center'.
+    offline : bool, optional
+        If False, will try to download missing data files from Kiel university.
+        If True, will only use locally available files in *path* (or the
+        default SunPy download directory when *path* is None). By default False.
+
+    Returns
+    -------
+    df : Pandas DataFrame
+        Dataframe with 14 channels of electron intensities, their respective uncertainties, and additional columns for the ring status, scale factor, and contamination.
+    metadata : dict
+        A dictionary giving details on the measurement channels
+    """
+
+    LVL3_E_CHANNELS_NUM: int = 14
+
+    # To be dropped columns when all_columns==False:
+    UNNECESSARY_COLUMNS: list[str] = (
+                ["date", "year", "doy", "msod", "scale_factor"]
+                + [f"Bin{i}" for i in range(4, 31+1)]
+            )
+
+    if not path:
+        path: str = sunpy.config.get('downloads', 'download_dir') + os.sep
+
+    # Create a list of files to load:
+    dates: pd.DatetimeIndex = pd.date_range(start=startdate, end=enddate, freq='D')
+    filelist: list = []
+    for i, date in enumerate(dates):
+
+        name: str = date.strftime("%Y-%m-%d")
+
+        try:
+            file: str = glob.glob(f"{path}{os.sep}{name}.lvl3hst")[0]
+        except IndexError:
+            if not offline:
+                print(f"File {name}.lvl3hst not found locally at {path}.")
+                file: str = soho_ephin_l3_download(date, path)
+            else:
+                custom_warning(f"File {name}.lvl3hst not found locally at {path}. Skipping (offline mode enabled).")
+                file: str = ''
+
+        if len(file) > 0:
+            filelist.append(file)
+
+    if len(filelist) > 0:
+        filelist = np.sort(filelist)
+
+        # The column names as described in:
+        # https://doi.org/10.5281/zenodo.18225155
+        col_names: list[str] = (
+            ["date", "year", "doy", "msod"]
+            + [f"E{i}" for i in range(LVL3_E_CHANNELS_NUM+1)]
+            + [f"E{i}_err_syst" for i in range(LVL3_E_CHANNELS_NUM+1)]
+            + [f"E{i}_err_stat" for i in range(LVL3_E_CHANNELS_NUM+1)]
+            + [f"Bin{i}" for i in range(4, 31+1)]
+            + ["ring_off", "scale_factor", "contam"]
+        )
+
+        # Read files into Pandas dataframes:
+        df = pd.read_csv(filelist[0], header=0, sep=r'\s+', names=col_names)
+        if len(filelist) > 1:
+            for file in filelist[1:]:
+                t_df: pd.DataFrame = pd.read_csv(file, header=0, sep=r'\s+', names=col_names)
+                df = pd.concat([df, t_df])
+
+        # Assign datetime as the index
+        df["date"] = pd.to_datetime(df["date"])
+        df.index = df["date"]
+        df.index.name = "time"
+
+        # Drop some unused columns:
+        if not all_columns:
+            df = df.drop(columns=UNNECESSARY_COLUMNS)
+
+        # CAREFUL!
+        # Adjusting the position of the timestamp manually.
+        # Requires knowledge of the original timestamp position!
+        # The data has the timestamp at the start of the accumulation interval
+        # (priv. comm. S. Jensen), so we need to shift it by half the interval,
+        # which changed from 8 minutes before 2023 to 1 minute after 2023. Doing
+        # this automatically deducing the interval from the data, as done here,
+        # should be robust to this change.
+        if pos_timestamp == "center":
+            intervals = df.index.to_series().diff().shift(-1)  # interval[i] = index[i+1] - index[i]
+            half_intervals = intervals / 2
+            half_intervals = half_intervals.ffill()  # fill last NaT with previous value
+            df.index = df.index + half_intervals.values
+
+        # Resampling (optional):
+        if isinstance(resample, str):
+            df = resample_df(df, resample, pos_timestamp=pos_timestamp, cols_unc='auto', verbose=False, keywords_unc=['_err_syst', '_err_stat'])
+    else:
+        df: list = []
+
+    energies: np.ndarray = np.array([0.299, 0.328, 0.372, 0.421, 0.473, 0.530, 0.587, 0.643, 0.703, 0.761, 0.821, 0.881, 0.969, 1.104, 1.241])
+    energy_labels: list[str] = [f'{e:.3f} MeV' for e in energies]
+    channels_dict_df_e: pd.DataFrame = pd.DataFrame({
+                                                     'ch_strings': energy_labels,
+                                                     'mean_E': energies,
+                                                     'lower_E': np.nan,
+                                                     'upper_E': np.nan,
+                                                     'DE': np.nan
+                                                     })
+
+    metadata = {
+                'General_INFO': 'https://doi.org/10.5281/zenodo.18225155',
+                'Electron_ENERGY_LABL': energy_labels,
+                'Electron_ENERGY': energies,
+                'Electron_ENERGY_UNITS': 'MeV',
+                'Electron_ENERGY_INFO': 'Effective energy of the electron channels in MeV',
+                'Electron_FLUX_LABL': 'Electron flux',
+                'Electron_FLUX_UNITS': '(MeV cm^2 sr s)^(-1)',
+                'channels_dict_df_e': channels_dict_df_e,
+                }
+
+    return df, metadata
 
 
 def doy2dt(year, doy):
